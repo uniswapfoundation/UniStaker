@@ -4,22 +4,36 @@ pragma solidity 0.8.23;
 import {ERC20} from "openzeppelin/token/ERC20/ERC20.sol";
 import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
 
+/// @dev An ERC20 token that allows for public minting and mocks the delegation methods used in
+/// ERC20Votes governance tokens. It does not included check pointing functionality. This contract
+/// is intended only for use as stand in for contracts that interface with ERC20Votes tokens.
 contract MockERC20Votes is IERC20Delegates, ERC20 {
+  /// @dev Track delegations for mocked delegation methods
   mapping(address account => address delegate) private delegations;
 
   constructor() ERC20("Governance Token", "GOV") {}
 
+  /// @dev Public mint function useful for testing
   function mint(address _account, uint256 _value) public {
     _mint(_account, _value);
   }
 
+  /// @dev Mock delegation method
   function delegate(address _delegatee) external {
     delegations[msg.sender] = _delegatee;
   }
 
+  /// @dev Mock method for fetching to which address the provided account last delegated
+  /// via `delegate`
   function delegates(address _account) external view returns (address) {
     return delegations[_account];
   }
+
+  //---------------------------------------------------------------------------------------------//
+  // All methods below this line are overridden solely for the sake of disambiguating identical  //
+  // method signatures for Solidity. No functionality is implemented and all parameters are      //
+  // curried to the standard implementations from OpenZeppelin's ERC20 contract.                 //
+  //---------------------------------------------------------------------------------------------//
 
   function allowance(address account, address spender)
     public
