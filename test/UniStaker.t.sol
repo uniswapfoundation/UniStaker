@@ -33,12 +33,21 @@ contract UniStakerTest is Test {
 
   function _stake(address _depositor, uint256 _amount, address _delegatee)
     internal
-    returns (uint256 _depositId)
+    returns (UniStaker.DepositIdentifier _depositId)
   {
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     _depositId = uniStaker.stake(_amount, _delegatee);
     vm.stopPrank();
+  }
+
+  function _fetchDeposit(UniStaker.DepositIdentifier _depositId)
+    internal
+    view
+    returns (UniStaker.Deposit memory)
+  {
+    (uint256 _balance, address _owner, address _delegatee) = uniStaker.deposits(_depositId);
+    return UniStaker.Deposit({balance: _balance, owner: _owner, delegatee: _delegatee});
   }
 }
 
@@ -59,7 +68,7 @@ contract Constructor is UniStakerTest {
 }
 
 contract Stake is UniStakerTest {
-  function testFuzz_DeploysAndTransfersTokensToANewSurrogateWhenAUserStakes(
+  function testFuzz_DeploysAndTransfersTokensToANewSurrogateWhenAnAccountStakes(
     address _depositor,
     uint256 _amount,
     address _delegatee
@@ -103,7 +112,7 @@ contract Stake is UniStakerTest {
     assertEq(govToken.balanceOf(_depositor2), 0);
   }
 
-  function testFuzz_DeploysAndTransferTokenToTwoSurrogatesWhenUsersStakesToDifferentDelegatees(
+  function testFuzz_DeploysAndTransferTokenToTwoSurrogatesWhenAccountsStakesToDifferentDelegatees(
     address _depositor1,
     uint256 _amount1,
     address _depositor2,
@@ -135,5 +144,189 @@ contract Stake is UniStakerTest {
     assertEq(govToken.balanceOf(address(_surrogate2)), _amount2);
     assertEq(govToken.balanceOf(_depositor1), 0);
     assertEq(govToken.balanceOf(_depositor2), 0);
+  }
+
+  function testFuzz_UpdatesTheTotalSupplyWhenAnAccountStakes(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    _stake(_depositor, _amount, _delegatee);
+
+    assertEq(uniStaker.totalSupply(), _amount);
+  }
+
+  function testFuzz_UpdatesTheTotalSupplyWhenTwoAccountsStake(
+    address _depositor1,
+    uint256 _amount1,
+    address _depositor2,
+    uint256 _amount2,
+    address _delegatee1,
+    address _delegatee2
+  ) public {
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor1, _amount1);
+    _mintGovToken(_depositor2, _amount2);
+
+    _stake(_depositor1, _amount1, _delegatee1);
+    assertEq(uniStaker.totalSupply(), _amount1);
+
+    _stake(_depositor2, _amount2, _delegatee2);
+    assertEq(uniStaker.totalSupply(), _amount1 + _amount2);
+  }
+
+  function testFuzz_UpdatesAnAccountsTotalDepositsWhenItStakes(
+    address _depositor,
+    uint256 _amount1,
+    uint256 _amount2,
+    address _delegatee1,
+    address _delegatee2
+  ) public {
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor, _amount1 + _amount2);
+
+    // First stake + check total
+    _stake(_depositor, _amount1, _delegatee1);
+    assertEq(uniStaker.totalDeposits(_depositor), _amount1);
+
+    // Second stake + check total
+    _stake(_depositor, _amount2, _delegatee2);
+    assertEq(uniStaker.totalDeposits(_depositor), _amount1 + _amount2);
+  }
+
+  function testFuzz_UpdatesDifferentAccountsTotalDepositsIndependently(
+    address _depositor1,
+    uint256 _amount1,
+    address _depositor2,
+    uint256 _amount2,
+    address _delegatee1,
+    address _delegatee2
+  ) public {
+    vm.assume(_depositor1 != _depositor2);
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor1, _amount1);
+    _mintGovToken(_depositor2, _amount2);
+
+    _stake(_depositor1, _amount1, _delegatee1);
+    assertEq(uniStaker.totalDeposits(_depositor1), _amount1);
+
+    _stake(_depositor2, _amount2, _delegatee2);
+    assertEq(uniStaker.totalDeposits(_depositor2), _amount2);
+  }
+
+  function testFuzz_TracksTheBalanceForASpecificDeposit(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    UniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    assertEq(_deposit.balance, _amount);
+    assertEq(_deposit.owner, _depositor);
+    assertEq(_deposit.delegatee, _delegatee);
+  }
+
+  function testFuzz_TracksTheBalanceForDifferentDepositsFromTheSameAccountIndependently(
+    address _depositor,
+    uint256 _amount1,
+    uint256 _amount2,
+    address _delegatee1,
+    address _delegatee2
+  ) public {
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor, _amount1 + _amount2);
+
+    // Perform both deposits and track their identifiers separately
+    UniStaker.DepositIdentifier _depositId1 = _stake(_depositor, _amount1, _delegatee1);
+    UniStaker.DepositIdentifier _depositId2 = _stake(_depositor, _amount2, _delegatee2);
+    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
+    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+
+    // Check that the deposits have been recorded independently
+    assertEq(_deposit1.balance, _amount1);
+    assertEq(_deposit1.owner, _depositor);
+    assertEq(_deposit1.delegatee, _delegatee1);
+    assertEq(_deposit2.balance, _amount2);
+    assertEq(_deposit2.owner, _depositor);
+    assertEq(_deposit2.delegatee, _delegatee2);
+  }
+
+  function testFuzz_TracksTheBalanceForDepositsFromDifferentAccountsIndependently(
+    address _depositor1,
+    address _depositor2,
+    uint256 _amount1,
+    uint256 _amount2,
+    address _delegatee1,
+    address _delegatee2
+  ) public {
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor1, _amount1);
+    _mintGovToken(_depositor2, _amount2);
+
+    // Perform both deposits and track their identifiers separately
+    UniStaker.DepositIdentifier _depositId1 = _stake(_depositor1, _amount1, _delegatee1);
+    UniStaker.DepositIdentifier _depositId2 = _stake(_depositor2, _amount2, _delegatee2);
+    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
+    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+
+    // Check that the deposits have been recorded independently
+    assertEq(_deposit1.balance, _amount1);
+    assertEq(_deposit1.owner, _depositor1);
+    assertEq(_deposit1.delegatee, _delegatee1);
+    assertEq(_deposit2.balance, _amount2);
+    assertEq(_deposit2.owner, _depositor2);
+    assertEq(_deposit2.delegatee, _delegatee2);
+  }
+
+  mapping(UniStaker.DepositIdentifier depositId => bool isUsed) isIdUsed;
+
+  function test_NeverReusesADepositIdentifier() public {
+    address _depositor = address(0xdeadbeef);
+    uint256 _amount = 116;
+    address _delegatee = address(0xaceface);
+
+    UniStaker.DepositIdentifier _depositId;
+
+    // Repeat the deposit over and over ensuring a new DepositIdentifier is assigned each time.
+    for (uint256 _i; _i < 5000; _i++) {
+      // Perform the stake and save the deposit identifier
+      _mintGovToken(_depositor, _amount);
+      _depositId = _stake(_depositor, _amount, _delegatee);
+
+      // Ensure the identifier hasn't yet been used
+      assertFalse(isIdUsed[_depositId]);
+      // Record the fact this deposit Id has been used
+      isIdUsed[_depositId] = true;
+    }
+
+    // Now make a bunch more deposits with different depositors and parameters, continuing to check
+    // that the DepositIdentifier is never reused.
+    for (uint256 _i; _i < 5000; _i++) {
+      // Perform the stake and save the deposit identifier
+      _amount = _bound(_amount, 0, 100_000_000_000e18);
+      _mintGovToken(_depositor, _amount);
+      _depositId = _stake(_depositor, _amount, _delegatee);
+
+      // Ensure the identifier hasn't yet been used
+      assertFalse(isIdUsed[_depositId]);
+      // Record the fact this deposit Id has been used
+      isIdUsed[_depositId] = true;
+
+      // Assign new inputs for the next deposit by hashing the last inputs
+      _depositor = address(uint160(uint256(keccak256(abi.encode(_depositor)))));
+      _amount = uint256(keccak256(abi.encode(_amount)));
+      _delegatee = address(uint160(uint256(keccak256(abi.encode(_delegatee)))));
+    }
   }
 }
