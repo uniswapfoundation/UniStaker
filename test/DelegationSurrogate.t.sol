@@ -3,13 +3,13 @@ pragma solidity 0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
-import {MockERC20Votes} from "test/mocks/MockERC20Votes.sol";
+import {ERC20VotesMock} from "test/mocks/MockERC20Votes.sol";
 
 contract DelegationSurrogateTest is Test {
-  MockERC20Votes govToken;
+  ERC20VotesMock govToken;
 
   function setUp() public {
-    govToken = new MockERC20Votes();
+    govToken = new ERC20VotesMock();
     vm.label(address(govToken), "Governance Token");
   }
 
@@ -23,12 +23,12 @@ contract DelegationSurrogateTest is Test {
 }
 
 contract Constructor is DelegationSurrogateTest {
-  function test_DelegatesToDeployer(address _deployer, address _delegatee) public {
+  function testFuzz_DelegatesToDeployer(address _deployer, address _delegatee) public {
     DelegationSurrogate _surrogate = __deploy(_deployer, _delegatee);
     assertEq(_delegatee, govToken.delegates(address(_surrogate)));
   }
 
-  function test_MaxApprovesDeployerToEnableWithdrawals(
+  function testFuzz_MaxApprovesDeployerToEnableWithdrawals(
     address _deployer,
     address _delegatee,
     uint256 _amount,

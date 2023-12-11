@@ -7,7 +7,7 @@ import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
 /// @author ScopeLift
 /// @notice A dead-simple contract whose only purpose is to hold governance tokens on behalf of
 /// users while delegating voting power to one specific delegatee. This is needed because a single
-/// address can only delegate its (full) token weight to a single address at time. Thus, when a
+/// address can only delegate its (full) token weight to a single address at a time. Thus, when a
 /// contract holds governance tokens in a pool on behalf of disparate token holders, those holders
 /// are typically disenfranchised from their governance rights.
 ///
