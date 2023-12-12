@@ -10,6 +10,8 @@ import {ReentrancyGuard} from "openzeppelin/utils/ReentrancyGuard.sol";
 contract UniStaker is ReentrancyGuard {
   type DepositIdentifier is uint256;
 
+  error UniStaker__Unauthorized(bytes32 reason, address caller);
+
   struct Deposit {
     uint256 balance;
     address owner;
@@ -46,6 +48,16 @@ contract UniStaker is ReentrancyGuard {
     totalSupply += _amount;
     totalDeposits[msg.sender] += _amount;
     deposits[_depositId] = Deposit({balance: _amount, owner: msg.sender, delegatee: _delegatee});
+  }
+
+  function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
+
+    deposit.balance -= _amount; // overflow prevents withdrawing more than balance
+    totalSupply -= _amount;
+    totalDeposits[msg.sender] -= _amount;
+    _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
   }
 
   function _fetchOrDeploySurrogate(address _delegatee)

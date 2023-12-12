@@ -49,6 +49,15 @@ contract UniStakerTest is Test {
     (uint256 _balance, address _owner, address _delegatee) = uniStaker.deposits(_depositId);
     return UniStaker.Deposit({balance: _balance, owner: _owner, delegatee: _delegatee});
   }
+
+  function _boundMintAndStake(address _depositor, uint256 _amount, address _delegatee)
+    internal
+    returns (uint256 _boundedAmount, UniStaker.DepositIdentifier _depositId)
+  {
+    _boundedAmount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _boundedAmount);
+    _depositId = _stake(_depositor, _boundedAmount, _delegatee);
+  }
 }
 
 contract Constructor is UniStakerTest {
@@ -112,7 +121,7 @@ contract Stake is UniStakerTest {
     assertEq(govToken.balanceOf(_depositor2), 0);
   }
 
-  function testFuzz_DeploysAndTransferTokenToTwoSurrogatesWhenAccountsStakesToDifferentDelegatees(
+  function testFuzz_DeploysAndTransfersTokenToTwoSurrogatesWhenAccountsStakesToDifferentDelegatees(
     address _depositor1,
     uint256 _amount1,
     address _depositor2,
@@ -314,5 +323,148 @@ contract Stake is UniStakerTest {
       _amount = uint256(keccak256(abi.encode(_amount)));
       _delegatee = address(uint160(uint256(keccak256(abi.encode(_delegatee)))));
     }
+  }
+}
+
+contract Withdraw is UniStakerTest {
+  function testFuzz_AllowsDepositorToWithdrawFullStake(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _amount);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(govToken.balanceOf(_depositor), _amount);
+    assertEq(_deposit.balance, 0);
+  }
+
+  function testFuzz_AllowsDepositorToWithdrawPartialStake(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    uint256 _withdrawalAmount
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
+    _withdrawalAmount = bound(_withdrawalAmount, 0, _depositAmount);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _withdrawalAmount);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(govToken.balanceOf(_depositor), _withdrawalAmount);
+    assertEq(_deposit.balance, _depositAmount - _withdrawalAmount);
+  }
+
+  function testFuzz_UpdatesTheTotalSupplyWhenAnAccountWithdraws(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    uint256 _withdrawalAmount
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
+    _withdrawalAmount = bound(_withdrawalAmount, 0, _depositAmount);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _withdrawalAmount);
+
+    assertEq(uniStaker.totalSupply(), _depositAmount - _withdrawalAmount);
+  }
+
+  function testFuzz_UpdatesTheTotalSupplyWhenTwoAccountsWithdraw(
+    address _depositor1,
+    uint256 _depositAmount1,
+    address _delegatee1,
+    address _depositor2,
+    uint256 _depositAmount2,
+    address _delegatee2,
+    uint256 _withdrawalAmount1,
+    uint256 _withdrawalAmount2
+  ) public {
+    // Make two separate deposits
+    UniStaker.DepositIdentifier _depositId1;
+    (_depositAmount1, _depositId1) = _boundMintAndStake(_depositor1, _depositAmount1, _delegatee1);
+    UniStaker.DepositIdentifier _depositId2;
+    (_depositAmount2, _depositId2) = _boundMintAndStake(_depositor2, _depositAmount2, _delegatee2);
+
+    // Calculate withdrawal amounts
+    _withdrawalAmount1 = bound(_withdrawalAmount1, 0, _depositAmount1);
+    _withdrawalAmount2 = bound(_withdrawalAmount2, 0, _depositAmount2);
+
+    // Execute both withdrawals
+    vm.prank(_depositor1);
+    uniStaker.withdraw(_depositId1, _withdrawalAmount1);
+    vm.prank(_depositor2);
+    uniStaker.withdraw(_depositId2, _withdrawalAmount2);
+
+    uint256 _remainingDeposits =
+      _depositAmount1 + _depositAmount2 - _withdrawalAmount1 - _withdrawalAmount2;
+    assertEq(uniStaker.totalSupply(), _remainingDeposits);
+  }
+
+  function testFuzz_UpdatesAnAccountsTotalDepositsWhenItWithdrawals(
+    address _depositor,
+    uint256 _depositAmount1,
+    uint256 _depositAmount2,
+    address _delegatee1,
+    address _delegatee2,
+    uint256 _withdrawalAmount
+  ) public {
+    // Make two separate deposits
+    UniStaker.DepositIdentifier _depositId1;
+    (_depositAmount1, _depositId1) = _boundMintAndStake(_depositor, _depositAmount1, _delegatee1);
+    UniStaker.DepositIdentifier _depositId2;
+    (_depositAmount2, _depositId2) = _boundMintAndStake(_depositor, _depositAmount2, _delegatee2);
+
+    // Withdraw part of the first deposit
+    _withdrawalAmount = bound(_withdrawalAmount, 0, _depositAmount1);
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId1, _withdrawalAmount);
+
+    // Ensure the account's total balance + global balance accounting have been updated
+    assertEq(
+      uniStaker.totalDeposits(_depositor), _depositAmount1 + _depositAmount2 - _withdrawalAmount
+    );
+    assertEq(uniStaker.totalSupply(), _depositAmount1 + _depositAmount2 - _withdrawalAmount);
+  }
+
+  function testFuzz_RevertIf_TheWithdrawerIsNotTheDepositor(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _notDepositor
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
+    vm.assume(_depositor != _notDepositor);
+
+    vm.prank(_notDepositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    uniStaker.withdraw(_depositId, _amount);
+  }
+
+  function testFuzz_RevertIf_TheWithdrawalAmountIsGreaterThanTheBalance(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
+
+    vm.prank(_depositor);
+    vm.expectRevert();
+    uniStaker.withdraw(_depositId, _amount + 1);
   }
 }
