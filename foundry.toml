@@ -26,3 +26,11 @@
   single_line_statement_blocks = "single"
   tab_width = 2
   wrap_comments = true
+
+[fuzz]
+  # We turn on this setting to prevent the fuzzer from picking DelegationSurrogate contracts,
+  # including before they're actually even deployed, as some other entity in the test, for example
+  # depositor. This makes no sense and breaks test assertions, but is extremely difficult to handle
+  # with assume statements because we don't have the surrogate address until it's deployed later in
+  # the test.
+  include_storage = false
