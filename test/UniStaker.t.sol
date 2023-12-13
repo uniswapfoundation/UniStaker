@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {UniStaker, DelegationSurrogate} from "src/UniStaker.sol";
+import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
 import {ERC20VotesMock} from "test/mocks/MockERC20Votes.sol";
 import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
 
@@ -46,6 +46,15 @@ contract Constructor is UniStakerTest {
   function test_SetsTheRewardTokenAndStakeToken() public {
     assertEq(address(uniStaker.REWARDS_TOKEN()), address(rewardToken));
     assertEq(address(uniStaker.STAKE_TOKEN()), address(govToken));
+  }
+
+  function testFuzz_SetsTheRewardTokenAndStakeTokenToArbitraryAddresses(
+    address _rewardToken,
+    address _stakeToken
+  ) public {
+    UniStaker _uniStaker = new UniStaker(IERC20(_rewardToken), IERC20Delegates(_stakeToken));
+    assertEq(address(_uniStaker.REWARDS_TOKEN()), address(_rewardToken));
+    assertEq(address(_uniStaker.STAKE_TOKEN()), address(_stakeToken));
   }
 }
 
