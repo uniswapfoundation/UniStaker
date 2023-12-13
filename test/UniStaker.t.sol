@@ -72,6 +72,7 @@ contract Stake is UniStakerTest {
 
     assertEq(govToken.balanceOf(address(_surrogate)), _amount);
     assertEq(govToken.delegates(address(_surrogate)), _delegatee);
+    assertEq(govToken.balanceOf(_depositor), 0);
   }
 
   function testFuzz_TransfersToAnExistingSurrogateWhenStakedToTheSameDelegatee(
@@ -98,6 +99,8 @@ contract Stake is UniStakerTest {
     assertEq(address(uniStaker.surrogates(_delegatee)), address(_surrogate));
     assertEq(govToken.delegates(address(_surrogate)), _delegatee);
     assertEq(govToken.balanceOf(address(_surrogate)), _amount1 + _amount2);
+    assertEq(govToken.balanceOf(_depositor1), 0);
+    assertEq(govToken.balanceOf(_depositor2), 0);
   }
 
   function testFuzz_DeploysAndTransferTokenToTwoSurrogatesWhenUsersStakesToDifferentDelegatees(
@@ -130,5 +133,7 @@ contract Stake is UniStakerTest {
     assertEq(govToken.balanceOf(address(_surrogate1)), _amount1);
     assertEq(govToken.delegates(address(_surrogate2)), _delegatee2);
     assertEq(govToken.balanceOf(address(_surrogate2)), _amount2);
+    assertEq(govToken.balanceOf(_depositor1), 0);
+    assertEq(govToken.balanceOf(_depositor2), 0);
   }
 }
