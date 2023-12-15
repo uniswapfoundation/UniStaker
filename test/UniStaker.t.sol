@@ -64,7 +64,7 @@ contract Stake is UniStakerTest {
     uint256 _amount,
     address _delegatee
   ) public {
-    _amount = _boundMintAmount(_amount);
+    _amount = bound(_amount, 1, type(uint224).max);
     _mintGovToken(_depositor, _amount);
     _stake(_depositor, _amount, _delegatee);
 
@@ -95,7 +95,7 @@ contract Stake is UniStakerTest {
     // Perform the second stake with this delegatee
     _stake(_depositor2, _amount2, _delegatee);
 
-    // Ensure surrogate for this delegatee hasn't changed and has 2x the balance
+    // Ensure surrogate for this delegatee hasn't changed and has summed stake balance
     assertEq(address(uniStaker.surrogates(_delegatee)), address(_surrogate));
     assertEq(govToken.delegates(address(_surrogate)), _delegatee);
     assertEq(govToken.balanceOf(address(_surrogate)), _amount1 + _amount2);
