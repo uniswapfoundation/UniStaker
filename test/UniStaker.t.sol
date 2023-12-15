@@ -41,13 +41,29 @@ contract UniStakerTest is Test {
     vm.stopPrank();
   }
 
+  function _stake(address _depositor, uint256 _amount, address _delegatee, address _beneficiary)
+    internal
+    returns (UniStaker.DepositIdentifier _depositId)
+  {
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    _depositId = uniStaker.stake(_amount, _delegatee, _beneficiary);
+    vm.stopPrank();
+  }
+
   function _fetchDeposit(UniStaker.DepositIdentifier _depositId)
     internal
     view
     returns (UniStaker.Deposit memory)
   {
-    (uint256 _balance, address _owner, address _delegatee) = uniStaker.deposits(_depositId);
-    return UniStaker.Deposit({balance: _balance, owner: _owner, delegatee: _delegatee});
+    (uint256 _balance, address _owner, address _delegatee, address _beneficiary) =
+      uniStaker.deposits(_depositId);
+    return UniStaker.Deposit({
+      balance: _balance,
+      owner: _owner,
+      delegatee: _delegatee,
+      beneficiary: _beneficiary
+    });
   }
 
   function _boundMintAndStake(address _depositor, uint256 _amount, address _delegatee)
@@ -57,6 +73,17 @@ contract UniStakerTest is Test {
     _boundedAmount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _boundedAmount);
     _depositId = _stake(_depositor, _boundedAmount, _delegatee);
+  }
+
+  function _boundMintAndStake(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary
+  ) internal returns (uint256 _boundedAmount, UniStaker.DepositIdentifier _depositId) {
+    _boundedAmount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _boundedAmount);
+    _depositId = _stake(_depositor, _boundedAmount, _delegatee, _beneficiary);
   }
 }
 
@@ -298,6 +325,91 @@ contract Stake is UniStakerTest {
     assertEq(_deposit2.delegatee, _delegatee2);
   }
 
+  function testFuzz_AssignsEarningPowerToDepositorIfNoBeneficiaryIsSpecified(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    UniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(uniStaker.earningPower(_depositor), _amount);
+    assertEq(_deposit.beneficiary, _depositor);
+  }
+
+  function testFuzz_AssignsEarningPowerToTheBeneficiaryProvided(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    UniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(uniStaker.earningPower(_beneficiary), _amount);
+    assertEq(_deposit.beneficiary, _beneficiary);
+  }
+
+  function testFuzz_AssignsEarningPowerToDifferentBeneficiariesForDifferentDepositsFromTheSameDepositor(
+    address _depositor,
+    uint256 _amount1,
+    uint256 _amount2,
+    address _delegatee,
+    address _beneficiary1,
+    address _beneficiary2
+  ) public {
+    vm.assume(_beneficiary1 != _beneficiary2);
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor, _amount1 + _amount2);
+
+    // Perform both deposits and track their identifiers separately
+    UniStaker.DepositIdentifier _depositId1 =
+      _stake(_depositor, _amount1, _delegatee, _beneficiary1);
+    UniStaker.DepositIdentifier _depositId2 =
+      _stake(_depositor, _amount2, _delegatee, _beneficiary2);
+    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
+    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+
+    // Check that the earning power has been recorded independently
+    assertEq(_deposit1.beneficiary, _beneficiary1);
+    assertEq(uniStaker.earningPower(_beneficiary1), _amount1);
+    assertEq(_deposit2.beneficiary, _beneficiary2);
+    assertEq(uniStaker.earningPower(_beneficiary2), _amount2);
+  }
+
+  function testFuzz_AssignsEarningPowerToTheSameBeneficiarySpecifiedByTwoDifferentDepositors(
+    address _depositor1,
+    address _depositor2,
+    uint256 _amount1,
+    uint256 _amount2,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    _amount1 = _boundMintAmount(_amount1);
+    _amount2 = _boundMintAmount(_amount2);
+    _mintGovToken(_depositor1, _amount1);
+    _mintGovToken(_depositor2, _amount2);
+
+    // Perform both deposits and track their identifiers separately
+    UniStaker.DepositIdentifier _depositId1 =
+      _stake(_depositor1, _amount1, _delegatee, _beneficiary);
+    UniStaker.DepositIdentifier _depositId2 =
+      _stake(_depositor2, _amount2, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
+    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+
+    assertEq(_deposit1.beneficiary, _beneficiary);
+    assertEq(_deposit2.beneficiary, _beneficiary);
+    assertEq(uniStaker.earningPower(_beneficiary), _amount1 + _amount2);
+  }
+
   mapping(UniStaker.DepositIdentifier depositId => bool isUsed) isIdUsed;
 
   function test_NeverReusesADepositIdentifier() public {
@@ -434,6 +546,176 @@ contract Withdraw is UniStakerTest {
       uniStaker.totalDeposits(_depositor), _depositAmount1 + _depositAmount2 - _withdrawalAmount
     );
     assertEq(uniStaker.totalSupply(), _depositAmount1 + _depositAmount2 - _withdrawalAmount);
+  }
+
+  function testFuzz_RemovesFullEarningPowerFromADepositorWhoHadSelfAssignedIt(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _amount);
+
+    assertEq(uniStaker.earningPower(_depositor), 0);
+  }
+
+  function testFuzz_RemovesPartialEarningPowerFromADepositorWhoHadSelfAssignedIt(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    uint256 _withdrawalAmount
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
+    _withdrawalAmount = bound(_withdrawalAmount, 0, _depositAmount);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _withdrawalAmount);
+
+    assertEq(uniStaker.earningPower(_depositor), _depositAmount - _withdrawalAmount);
+  }
+
+  function testFuzz_RemovesFullEarningPowerFromABeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _amount);
+
+    assertEq(uniStaker.earningPower(_beneficiary), 0);
+  }
+
+  function testFuzz_RemovesPartialEarningPowerFromABeneficiary(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _withdrawalAmount
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    _withdrawalAmount = bound(_withdrawalAmount, 0, _depositAmount);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _withdrawalAmount);
+
+    assertEq(uniStaker.earningPower(_beneficiary), _depositAmount - _withdrawalAmount);
+  }
+
+  function testFuzz_RemovesPartialEarningPowerFromABeneficiaryAssignedByTwoDepositors(
+    address _depositor1,
+    address _depositor2,
+    uint256 _depositAmount1,
+    uint256 _depositAmount2,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _withdrawalAmount1,
+    uint256 _withdrawalAmount2
+  ) public {
+    UniStaker.DepositIdentifier _depositId1;
+    (_depositAmount1, _depositId1) =
+      _boundMintAndStake(_depositor1, _depositAmount1, _delegatee, _beneficiary);
+    _withdrawalAmount1 = bound(_withdrawalAmount1, 0, _depositAmount1);
+
+    UniStaker.DepositIdentifier _depositId2;
+    (_depositAmount2, _depositId2) =
+      _boundMintAndStake(_depositor2, _depositAmount2, _delegatee, _beneficiary);
+    _withdrawalAmount2 = bound(_withdrawalAmount2, 0, _depositAmount2);
+
+    vm.prank(_depositor1);
+    uniStaker.withdraw(_depositId1, _withdrawalAmount1);
+
+    assertEq(
+      uniStaker.earningPower(_beneficiary), _depositAmount1 - _withdrawalAmount1 + _depositAmount2
+    );
+
+    vm.prank(_depositor2);
+    uniStaker.withdraw(_depositId2, _withdrawalAmount2);
+
+    assertEq(
+      uniStaker.earningPower(_beneficiary),
+      _depositAmount1 - _withdrawalAmount1 + _depositAmount2 - _withdrawalAmount2
+    );
+  }
+
+  function testFuzz_RemovesPartialEarningPowerFromDifferentBeneficiariesOfTheSameDepositor(
+    address _depositor,
+    uint256 _depositAmount1,
+    uint256 _depositAmount2,
+    address _delegatee,
+    address _beneficiary1,
+    address _beneficiary2,
+    uint256 _withdrawalAmount1,
+    uint256 _withdrawalAmount2
+  ) public {
+    vm.assume(_beneficiary1 != _beneficiary2);
+
+    UniStaker.DepositIdentifier _depositId1;
+    (_depositAmount1, _depositId1) =
+      _boundMintAndStake(_depositor, _depositAmount1, _delegatee, _beneficiary1);
+    _withdrawalAmount1 = bound(_withdrawalAmount1, 0, _depositAmount1);
+
+    UniStaker.DepositIdentifier _depositId2;
+    (_depositAmount2, _depositId2) =
+      _boundMintAndStake(_depositor, _depositAmount2, _delegatee, _beneficiary2);
+    _withdrawalAmount2 = bound(_withdrawalAmount2, 0, _depositAmount2);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId1, _withdrawalAmount1);
+
+    assertEq(uniStaker.earningPower(_beneficiary1), _depositAmount1 - _withdrawalAmount1);
+    assertEq(uniStaker.earningPower(_beneficiary2), _depositAmount2);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId2, _withdrawalAmount2);
+
+    assertEq(uniStaker.earningPower(_beneficiary1), _depositAmount1 - _withdrawalAmount1);
+    assertEq(uniStaker.earningPower(_beneficiary2), _depositAmount2 - _withdrawalAmount2);
+  }
+
+  function testFuzz_RemovesPartialEarningPowerFromDifferentBeneficiariesAndDifferentDepositors(
+    address _depositor1,
+    address _depositor2,
+    uint256 _depositAmount1,
+    uint256 _depositAmount2,
+    address _delegatee,
+    address _beneficiary1,
+    address _beneficiary2,
+    uint256 _withdrawalAmount1,
+    uint256 _withdrawalAmount2
+  ) public {
+    vm.assume(_beneficiary1 != _beneficiary2);
+
+    UniStaker.DepositIdentifier _depositId1;
+    (_depositAmount1, _depositId1) =
+      _boundMintAndStake(_depositor1, _depositAmount1, _delegatee, _beneficiary1);
+    _withdrawalAmount1 = bound(_withdrawalAmount1, 0, _depositAmount1);
+
+    UniStaker.DepositIdentifier _depositId2;
+    (_depositAmount2, _depositId2) =
+      _boundMintAndStake(_depositor2, _depositAmount2, _delegatee, _beneficiary2);
+    _withdrawalAmount2 = bound(_withdrawalAmount2, 0, _depositAmount2);
+
+    vm.prank(_depositor1);
+    uniStaker.withdraw(_depositId1, _withdrawalAmount1);
+
+    assertEq(uniStaker.earningPower(_beneficiary1), _depositAmount1 - _withdrawalAmount1);
+    assertEq(uniStaker.earningPower(_beneficiary2), _depositAmount2);
+
+    vm.prank(_depositor2);
+    uniStaker.withdraw(_depositId2, _withdrawalAmount2);
+
+    assertEq(uniStaker.earningPower(_beneficiary1), _depositAmount1 - _withdrawalAmount1);
+    assertEq(uniStaker.earningPower(_beneficiary2), _depositAmount2 - _withdrawalAmount2);
   }
 
   function testFuzz_RevertIf_TheWithdrawerIsNotTheDepositor(
