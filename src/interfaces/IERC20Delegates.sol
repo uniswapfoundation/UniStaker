@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.23;
 
 /// @notice A subset of the ERC20Votes-style governance token to which UNI conforms.
