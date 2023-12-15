@@ -16,6 +16,7 @@ contract UniStaker is ReentrancyGuard {
     uint256 balance;
     address owner;
     address delegatee;
+    address beneficiary;
   }
 
   IERC20 public immutable REWARDS_TOKEN;
@@ -26,6 +27,8 @@ contract UniStaker is ReentrancyGuard {
   uint256 public totalSupply;
 
   mapping(address depositor => uint256 amount) public totalDeposits;
+
+  mapping(address beneficiary => uint256 amount) public earningPower;
 
   mapping(DepositIdentifier depositId => Deposit deposit) public deposits;
 
@@ -41,13 +44,15 @@ contract UniStaker is ReentrancyGuard {
     nonReentrant
     returns (DepositIdentifier _depositId)
   {
-    DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
-    _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
-    _depositId = _useDepositId();
+    _depositId = _stake(_amount, _delegatee, msg.sender);
+  }
 
-    totalSupply += _amount;
-    totalDeposits[msg.sender] += _amount;
-    deposits[_depositId] = Deposit({balance: _amount, owner: msg.sender, delegatee: _delegatee});
+  function stake(uint256 _amount, address _delegatee, address _beneficiary)
+    public
+    nonReentrant
+    returns (DepositIdentifier _depositId)
+  {
+    _depositId = _stake(_amount, _delegatee, _beneficiary);
   }
 
   function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
@@ -57,6 +62,7 @@ contract UniStaker is ReentrancyGuard {
     deposit.balance -= _amount; // overflow prevents withdrawing more than balance
     totalSupply -= _amount;
     totalDeposits[msg.sender] -= _amount;
+    earningPower[deposit.beneficiary] -= _amount;
     _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
   }
 
@@ -79,5 +85,24 @@ contract UniStaker is ReentrancyGuard {
   function _useDepositId() internal returns (DepositIdentifier _depositId) {
     _depositId = nextDepositId;
     nextDepositId = DepositIdentifier.wrap(DepositIdentifier.unwrap(_depositId) + 1);
+  }
+
+  function _stake(uint256 _amount, address _delegatee, address _beneficiary)
+    internal
+    returns (DepositIdentifier _depositId)
+  {
+    DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
+    _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
+    _depositId = _useDepositId();
+
+    totalSupply += _amount;
+    totalDeposits[msg.sender] += _amount;
+    earningPower[_beneficiary] += _amount;
+    deposits[_depositId] = Deposit({
+      balance: _amount,
+      owner: msg.sender,
+      delegatee: _delegatee,
+      beneficiary: _beneficiary
+    });
   }
 }
