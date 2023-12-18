@@ -21,8 +21,9 @@ contract UniStaker is ReentrancyGuard {
 
   IERC20 public immutable REWARDS_TOKEN;
   IERC20Delegates public immutable STAKE_TOKEN;
+  uint256 private SCALE_FACTOR = 1e18;
 
-  DepositIdentifier private nextDepositId;
+  DepositIdentifier private nextDepositId = DepositIdentifier.wrap(1);
 
   uint256 public totalSupply;
 
@@ -34,9 +35,37 @@ contract UniStaker is ReentrancyGuard {
 
   mapping(address delegatee => DelegationSurrogate surrogate) public surrogates;
 
+  uint256 public rewardDuration;
+  uint256 public finishAt;
+  uint256 public updatedAt;
+  uint256 public rewardRate;
+  uint256 public rewardPerTokenStored;
+  mapping(address account => uint256) public userRewardPerTokenPaid;
+  mapping(address account => uint256 amount) public rewards;
+
   constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken) {
     REWARDS_TOKEN = _rewardsToken;
     STAKE_TOKEN = _stakeToken;
+  }
+
+  function lastTimeRewardApplicable() public view returns (uint256) {
+    if (finishAt <= block.timestamp) {
+      return finishAt;
+    } else {
+      return block.timestamp;
+    }
+  }
+
+  function rewardPerToken() public view returns (uint256) {
+    if (totalSupply == 0) {
+      return rewardPerTokenStored;
+    }
+
+    return rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt) * SCALE_FACTOR) / totalSupply;
+  }
+
+  function earned(address _account) public view returns (uint256) {
+    return rewards[_account] + (earningPower[_account] * (rewardPerToken() - userRewardPerTokenPaid[_account])) / SCALE_FACTOR;
   }
 
   function stake(uint256 _amount, address _delegatee)
@@ -104,5 +133,15 @@ contract UniStaker is ReentrancyGuard {
       delegatee: _delegatee,
       beneficiary: _beneficiary
     });
+  }
+
+  function _updateReward(address _account) internal {
+    rewardPerTokenStored = rewardPerToken();
+    updatedAt = lastTimeRewardApplicable();
+
+    if (_account == address(0)) return;
+
+    rewards[_account] = earned(_account);
+    userRewardPerTokenPaid[_account] = rewardPerTokenStored;
   }
 }
