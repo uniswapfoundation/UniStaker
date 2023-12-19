@@ -35,7 +35,7 @@ contract UniStaker is ReentrancyGuard {
 
   mapping(address delegatee => DelegationSurrogate surrogate) public surrogates;
 
-  uint256 public rewardDuration;
+  uint256 public rewardDuration = 7 days;
   uint256 public finishAt;
   uint256 public updatedAt;
   uint256 public rewardRate;
@@ -88,11 +88,31 @@ contract UniStaker is ReentrancyGuard {
     Deposit storage deposit = deposits[_depositId];
     if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
 
+    _updateReward(deposit.beneficiary);
+
     deposit.balance -= _amount; // overflow prevents withdrawing more than balance
     totalSupply -= _amount;
     totalDeposits[msg.sender] -= _amount;
     earningPower[deposit.beneficiary] -= _amount;
     _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
+  }
+
+  function notifyRewardsAmount(uint256 _amount) external { // TODO: restricted method
+    _updateReward(address(0));
+
+    if (block.timestamp >= finishAt) {
+      rewardRate = _amount / rewardDuration;
+    } else {
+      uint256 remainingRewards = rewardRate * (finishAt - block.timestamp);
+      rewardRate = (remainingRewards + _amount) / rewardDuration;
+    }
+
+    // TODO convert to if reverts
+    require(rewardRate > 0, "reward rate = 0");
+    //require((rewardRate * rewardDuration) <= REWARDS_TOKEN.balanceOf(address(this)), "amount > balance");
+
+    finishAt = block.timestamp + rewardDuration;
+    updatedAt = block.timestamp;
   }
 
   function _fetchOrDeploySurrogate(address _delegatee)
@@ -120,6 +140,8 @@ contract UniStaker is ReentrancyGuard {
     internal
     returns (DepositIdentifier _depositId)
   {
+    _updateReward(_beneficiary);
+
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
     _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
     _depositId = _useDepositId();

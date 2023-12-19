@@ -750,3 +750,67 @@ contract Withdraw is UniStakerTest {
     uniStaker.withdraw(_depositId, _amount + 1);
   }
 }
+
+contract StakingScenarios is UniStakerTest {
+
+  function _dump(address _depositor) public view {
+    console2.log("rewardDuration");
+    console2.log(uniStaker.rewardDuration());
+    console2.log("finishAt");
+    console2.log(uniStaker.finishAt());
+    console2.log("updatedAt");
+    console2.log(uniStaker.updatedAt());
+    console2.log("rewardRate");
+    console2.log(uniStaker.rewardRate());
+    console2.log("block.timestamp");
+    console2.log(block.timestamp);
+    console2.log("rewardPerTokenStored");
+    console2.log(uniStaker.rewardPerTokenStored());
+    console2.log("userRewardPerTokenPaid[_depositor]");
+    console2.log(uniStaker.userRewardPerTokenPaid(_depositor));
+    console2.log("rewards[_depositor]");
+    console2.log(uniStaker.rewards(_depositor));
+    console2.log("lastTimeRewardApplicable()");
+    console2.log(uniStaker.lastTimeRewardApplicable());
+    console2.log("rewardPerToken()");
+    console2.log(uniStaker.rewardPerToken());
+
+    console2.log(type(uint256).max);
+  }
+
+  function assertWithinOnePercent(uint256 _x, uint256 _y) public {
+    uint256 _difference;
+    uint256 _greater;
+
+    if (_x >= _y) {
+      _difference = _x - _y; // 123
+      _greater = _x; // 5000
+    } else {
+      _difference = _y - _x;
+      _greater = _y;
+    }
+
+    uint256 _percentDiff = (_difference * 100) / _greater;
+    assertTrue(_percentDiff <= 1);
+  }
+
+  function test_ASingleUserDepositsAllStakeForTheEntireDuration() public {
+    address _depositor = address(0xde80517);
+    uint256 _stakeAmount = 1000e18;
+    uint256 _rewardAmount = 500e6;
+
+    vm.warp(block.timestamp + 1234);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
+    // The contract is notified of a reward
+    uniStaker.notifyRewardsAmount(_rewardAmount);
+
+    // Jump in time past the reward duration
+    vm.warp(block.timestamp + uniStaker.rewardDuration() + 1);
+
+    _dump(_depositor);
+
+    assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
+  }
+}
