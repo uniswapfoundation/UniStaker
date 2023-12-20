@@ -751,9 +751,10 @@ contract Withdraw is UniStakerTest {
   }
 }
 
-contract StakingScenarios is UniStakerTest {
+contract UniStakerRewardsTest is UniStakerTest {
 
-  function _dump(address _depositor) public view {
+  // Helper methods for dumping contract state related to rewards calculation for debugging
+  function __dumpDebugGlobalRewards() public view {
     console2.log("rewardDuration");
     console2.log(uniStaker.rewardDuration());
     console2.log("finishAt");
@@ -766,12 +767,6 @@ contract StakingScenarios is UniStakerTest {
     console2.log(block.timestamp);
     console2.log("rewardPerTokenStored");
     console2.log(uniStaker.rewardPerTokenStored());
-    console2.log("userRewardPerTokenPaid[_depositor]");
-    console2.log(uniStaker.userRewardPerTokenPaid(_depositor));
-    console2.log("rewards[_depositor]");
-    console2.log(uniStaker.rewards(_depositor));
-    console2.log("earned(_depositor)");
-    console2.log(uniStaker.earned(_depositor));
     console2.log("lastTimeRewardApplicable()");
     console2.log(uniStaker.lastTimeRewardApplicable());
     console2.log("rewardPerToken()");
@@ -779,21 +774,47 @@ contract StakingScenarios is UniStakerTest {
     console2.log("-----------------------------------------------");
   }
 
-  function assertWithinOnePercent(uint256 _x, uint256 _y) public {
-    uint256 _difference;
-    uint256 _greater;
+  function __dumpDebugDepositorRewards(address _depositor) public view {
+    console2.log("userRewardPerTokenPaid[_depositor]");
+    console2.log(uniStaker.userRewardPerTokenPaid(_depositor));
+    console2.log("rewards[_depositor]");
+    console2.log(uniStaker.rewards(_depositor));
+    console2.log("earned(_depositor)");
+    console2.log(uniStaker.earned(_depositor));
+    console2.log("-----------------------------------------------");
+  }
 
-    if (_x >= _y) {
-      _difference = _x - _y;
-      _greater = _x;
+  // Because there will be (expected) rounding errors in the amount of rewards earned, this helper
+  // checks that the two integers are provided are within 1% of the lesser of the two numbers.
+  function assertWithinOnePercent(uint256 a, uint256 b) public {
+    uint256 lesser;
+    uint256 greater;
+
+    if (a <= b) {
+      lesser = a;
+      greater = b;
     } else {
-      _difference = _y - _x;
-      _greater = _y;
+      lesser = b;
+      greater = a;
     }
 
-    uint256 _percentDiff = (_difference * 100) / _greater;
-    assertTrue(_percentDiff <= 1);
+    // Calculate 1% more than the lesser number
+    uint256 upperBound = (101 * lesser) / 100;
+    // Assert the greater number is within 101% of the lesser number
+    bool isGreaterWithinRange = greater <= upperBound;
+
+    if (!isGreaterWithinRange) {
+      emit log("Error: a and b not within 1%");
+      emit log_named_uint("  First", b);
+      emit log_named_uint("  Second", a);
+      emit log_named_uint("  Upper Bound", upperBound);
+
+      fail();
+    }
   }
+}
+
+contract StakingScenarios is UniStakerRewardsTest {
 
   function test_ASingleUserDepositsAllStakeForTheEntireDuration() public {
     address _depositor = address(0xde80517);
@@ -809,8 +830,6 @@ contract StakingScenarios is UniStakerTest {
 
     // Jump in time past the reward duration
     vm.warp(block.timestamp + uniStaker.rewardDuration() + 1);
-
-    _dump(_depositor);
 
     assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
   }
@@ -829,8 +848,6 @@ contract StakingScenarios is UniStakerTest {
 
     // Jump one third through the reward duration
     vm.warp(block.timestamp + uniStaker.rewardDuration() / 3 + 1);
-
-    _dump(_depositor);
 
     assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
   }
@@ -854,9 +871,6 @@ contract StakingScenarios is UniStakerTest {
 
     // Jump in time past the reward duration
     vm.warp(block.timestamp + uniStaker.rewardDuration() + 1);
-
-    _dump(_depositor1);
-    _dump(_depositor2);
 
     assertWithinOnePercent(uniStaker.earned(_depositor1), _rewardAmount / 2);
     assertWithinOnePercent(uniStaker.earned(_depositor2), _rewardAmount / 2);
