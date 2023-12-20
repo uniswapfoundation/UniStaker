@@ -157,6 +157,8 @@ contract UniStaker is ReentrancyGuard {
     });
   }
 
+  // TODO: rename snapshotReward?
+  // Extract into two methods global + user
   function _updateReward(address _account) internal {
     rewardPerTokenStored = rewardPerToken();
     updatedAt = lastTimeRewardApplicable();

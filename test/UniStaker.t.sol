@@ -770,12 +770,13 @@ contract StakingScenarios is UniStakerTest {
     console2.log(uniStaker.userRewardPerTokenPaid(_depositor));
     console2.log("rewards[_depositor]");
     console2.log(uniStaker.rewards(_depositor));
+    console2.log("earned(_depositor)");
+    console2.log(uniStaker.earned(_depositor));
     console2.log("lastTimeRewardApplicable()");
     console2.log(uniStaker.lastTimeRewardApplicable());
     console2.log("rewardPerToken()");
     console2.log(uniStaker.rewardPerToken());
-
-    console2.log(type(uint256).max);
+    console2.log("-----------------------------------------------");
   }
 
   function assertWithinOnePercent(uint256 _x, uint256 _y) public {
@@ -783,8 +784,8 @@ contract StakingScenarios is UniStakerTest {
     uint256 _greater;
 
     if (_x >= _y) {
-      _difference = _x - _y; // 123
-      _greater = _x; // 5000
+      _difference = _x - _y;
+      _greater = _x;
     } else {
       _difference = _y - _x;
       _greater = _y;
@@ -812,5 +813,124 @@ contract StakingScenarios is UniStakerTest {
     _dump(_depositor);
 
     assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
+  }
+
+  function test_ASingleUserDepositsAllStakeForPartialDuration() public {
+    address _depositor = address(0xde80517);
+    uint256 _stakeAmount = 1000e18;
+    uint256 _rewardAmount = 500e6;
+
+    vm.warp(block.timestamp + 1234);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
+    // The contract is notified of a reward
+    uniStaker.notifyRewardsAmount(_rewardAmount);
+
+    // Jump one third through the reward duration
+    vm.warp(block.timestamp + uniStaker.rewardDuration() / 3 + 1);
+
+    _dump(_depositor);
+
+    assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
+  }
+
+  function test_TwoUsersDepositDepositEqualStakeForTheEntireDuration() public {
+    address _depositor1 = address(0xace);
+    address _depositor2 = address(0xcafe);
+    uint256 _stakeAmount = 1000e18;
+    uint256 _rewardAmount = 500e6;
+
+    vm.warp(block.timestamp + 1234);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor1, _stakeAmount, address(0x1));
+    // Some time passes
+    vm.warp(block.timestamp + 3000);
+    // Another depositor deposits the same number of staking tokens
+    _boundMintAndStake(_depositor2, _stakeAmount, address(0x1));
+    // The contract is notified of a reward
+    uniStaker.notifyRewardsAmount(_rewardAmount);
+
+    // Jump in time past the reward duration
+    vm.warp(block.timestamp + uniStaker.rewardDuration() + 1);
+
+    _dump(_depositor1);
+    _dump(_depositor2);
+
+    assertWithinOnePercent(uniStaker.earned(_depositor1), _rewardAmount / 2);
+    assertWithinOnePercent(uniStaker.earned(_depositor2), _rewardAmount / 2);
+  }
+
+  function test_ASingleUserDepositsPartiallyThroughTheDuration() public {
+    address _depositor = address(0xde80517);
+    uint256 _stakeAmount = 1000e18;
+    uint256 _rewardAmount = 500e6;
+    vm.warp(block.timestamp + 1234);
+
+    // The contract is notified of a reward
+    uniStaker.notifyRewardsAmount(_rewardAmount);
+    // Jump forward 2/3rds through the duration
+    vm.warp(block.timestamp + (2 * uniStaker.rewardDuration()) / 3);
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
+    // Jump to the end of the duration
+    vm.warp(block.timestamp + uniStaker.rewardDuration() / 3);
+
+    assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
+  }
+
+  function test_OneUserStakesThroughTheDurationAndAnotherStakesTowardTheEnd() public {
+    address _depositor1 = address(0xace);
+    address _depositor2 = address(0xcafe);
+    uint256 _stakeAmount = 1000e18;
+    uint256 _rewardAmount = 500e6;
+    vm.warp(block.timestamp + 1234);
+
+    // The first user stakes some tokens
+    _boundMintAndStake(_depositor1, _stakeAmount, address(0x1));
+    // Some time passes
+    vm.warp(block.timestamp + 3000);
+    // The contract is notified of the first reward
+    uniStaker.notifyRewardsAmount(_rewardAmount);
+    // Jump forward 2/3rds through the duration
+    vm.warp(block.timestamp + (2* uniStaker.rewardDuration()) / 3);
+    // A second user stakes the same amount of tokens
+    _boundMintAndStake(_depositor2, _stakeAmount, address(0x1));
+    // Jump to the end of the duration
+    vm.warp(block.timestamp + uniStaker.rewardDuration() / 3);
+
+    // Depositor 1 earns the full rewards for 2/3rds of the time & 1/2 the reward for 1/3rd of the time
+    uint256 _depositor1ExpectedEarnings = (2 * _rewardAmount) / 3 + _rewardAmount / 6;
+    // Depositor 2 earns 1/2 the rewards for 1/3rd of the duration time
+    uint256 _depositor2ExpectedEarnings = _rewardAmount / 6;
+
+    assertWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    assertWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
+  }
+
+  function test_ASingleUserDepositsAllStakeAcrossMultipleRewards() public {
+    address _depositor = address(0xde80517);
+    uint256 _stakeAmount = 1000e18;
+    uint256 _rewardAmount1 = 500e6;
+    uint256 _rewardAmount2 = 1500e6;
+    vm.warp(block.timestamp + 1234);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
+    // The contract is notified of a reward
+    uniStaker.notifyRewardsAmount(_rewardAmount1);
+    // Jump 2/3rds through the current duration
+    vm.warp(block.timestamp + (2 * uniStaker.rewardDuration()) / 3);
+    // The contract is notified of a new reward, this resets the duration
+    uniStaker.notifyRewardsAmount(_rewardAmount2);
+    // Jump forward another 1/3rd of the duration
+    vm.warp(block.timestamp + uniStaker.rewardDuration() / 3);
+
+    // The depositor should have earned the full rewards for 2/3rds of the duration, then for a
+    // period of 1/3rd of the duration, earned the full rewards, which comprised of 1/3rd of the
+    // first reward and the full second reward
+    uint256 _depositorExpectedEarnings = (2 * _rewardAmount1) / 3 + ((_rewardAmount1 / 3) + _rewardAmount2) / 3;
+    assertWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
   }
 }
