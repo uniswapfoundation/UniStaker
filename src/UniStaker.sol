@@ -101,6 +101,8 @@ contract UniStaker is ReentrancyGuard {
     _updateReward(address(0));
 
     if (block.timestamp >= finishAt) {
+      // TODO: Can we move the scale factor into the rewardRate? This should reduce rounding errors
+      // introduced here when truncating on this division.
       rewardRate = _amount / rewardDuration;
     } else {
       uint256 remainingRewards = rewardRate * (finishAt - block.timestamp);

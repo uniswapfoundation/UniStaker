@@ -12,6 +12,10 @@ contract UniStakerTest is Test {
   UniStaker uniStaker;
 
   function setUp() public {
+    // set the block timestamp to a random value to avoid introducing assumptions into tests based
+    // on a starting timestamp of 0, which is the default
+    _jumpAhead(1234);
+
     rewardToken = new ERC20Fake();
     vm.label(address(rewardToken), "Reward Token");
 
@@ -20,6 +24,10 @@ contract UniStakerTest is Test {
 
     uniStaker = new UniStaker(rewardToken, govToken);
     vm.label(address(uniStaker), "UniStaker");
+  }
+
+  function _jumpAhead(uint256 _seconds) public {
+    vm.warp(block.timestamp + _seconds);
   }
 
   function _boundMintAmount(uint256 _amount) internal view returns (uint256) {
@@ -784,81 +792,88 @@ contract UniStakerRewardsTest is UniStakerTest {
     console2.log("-----------------------------------------------");
   }
 
+  function _jumpAheadByPercentOfRewardDuration(uint256 _percent) public {
+    uint256 _seconds = (_percent * uniStaker.rewardDuration()) / 100;
+    _jumpAhead(_seconds);
+  }
+
+  function _boundToRealisticStakeAndReward(
+    uint256 _stakeAmount,
+    uint256 _rewardAmount)
+    public
+    view
+    returns (uint256 _boundedStakeAmount, uint256 _boundedRewardAmount) {
+      _boundedStakeAmount = bound(_stakeAmount, 1e18, 1_000_000e18);
+      _boundedRewardAmount = bound(_rewardAmount, 200e6, 10_000_000e6);
+  }
+
   // Because there will be (expected) rounding errors in the amount of rewards earned, this helper
   // checks that the two integers are provided are within 1% of the lesser of the two numbers.
-  function assertWithinOnePercent(uint256 a, uint256 b) public {
-    uint256 lesser;
-    uint256 greater;
+  function assertLteWithinOnePercent(uint256 a, uint256 b) public {
 
-    if (a <= b) {
-      lesser = a;
-      greater = b;
-    } else {
-      lesser = b;
-      greater = a;
+    if (a > b) {
+      emit log("Error: a <= b not satisfied");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
     }
 
-    // Calculate 1% more than the lesser number
-    uint256 upperBound = (101 * lesser) / 100;
-    // Assert the greater number is within 101% of the lesser number
-    bool isGreaterWithinRange = greater <= upperBound;
+    uint256 minBound = (b * 9900) / 10_000;
 
-    if (!isGreaterWithinRange) {
-      emit log("Error: a and b not within 1%");
-      emit log_named_uint("  First", b);
-      emit log_named_uint("  Second", a);
-      emit log_named_uint("  Upper Bound", upperBound);
+    if (b < minBound) {
+      emit log("Error: a >= 0.99 * b not satisfied");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
+      emit log_named_uint("  minBound", minBound);
 
       fail();
     }
   }
 }
 
-contract StakingScenarios is UniStakerRewardsTest {
+contract Earned is UniStakerRewardsTest {
 
-  function test_ASingleUserDepositsAllStakeForTheEntireDuration() public {
-    address _depositor = address(0xde80517);
-    uint256 _stakeAmount = 1000e18;
-    uint256 _rewardAmount = 500e6;
-
-    vm.warp(block.timestamp + 1234);
-
-    // A user deposits staking tokens
-    _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
-    // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount);
-
-    // Jump in time past the reward duration
-    vm.warp(block.timestamp + uniStaker.rewardDuration() + 1);
-
-    assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
-  }
-
-  function test_ASingleUserDepositsAllStakeForPartialDuration() public {
-    address _depositor = address(0xde80517);
-    uint256 _stakeAmount = 1000e18;
-    uint256 _rewardAmount = 500e6;
-
-    vm.warp(block.timestamp + 1234);
+  function testFuzz_CalculatesCorrectEarningsForASingleDepositorThatStakesForAFullDuration(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
-    _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
     // The contract is notified of a reward
     uniStaker.notifyRewardsAmount(_rewardAmount);
+    // The full duration passes, and then some
+    _jumpAheadByPercentOfRewardDuration(101);
 
-    // Jump one third through the reward duration
-    vm.warp(block.timestamp + uniStaker.rewardDuration() / 3 + 1);
-
-    assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
+    // The user should have earned all the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
   }
 
-  function test_TwoUsersDepositDepositEqualStakeForTheEntireDuration() public {
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForPartialDuration(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    uniStaker.notifyRewardsAmount(_rewardAmount);
+    // One third of the duration passes
+    _jumpAheadByPercentOfRewardDuration(33);
+
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
+  }
+
+  function test_CalculatesCorrectEarningsForTwoUsersDepositDepositEqualStakeForTheEntireDuration() public {
     address _depositor1 = address(0xace);
     address _depositor2 = address(0xcafe);
     uint256 _stakeAmount = 1000e18;
     uint256 _rewardAmount = 500e6;
-
-    vm.warp(block.timestamp + 1234);
 
     // A user deposits staking tokens
     _boundMintAndStake(_depositor1, _stakeAmount, address(0x1));
@@ -872,15 +887,14 @@ contract StakingScenarios is UniStakerRewardsTest {
     // Jump in time past the reward duration
     vm.warp(block.timestamp + uniStaker.rewardDuration() + 1);
 
-    assertWithinOnePercent(uniStaker.earned(_depositor1), _rewardAmount / 2);
-    assertWithinOnePercent(uniStaker.earned(_depositor2), _rewardAmount / 2);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _rewardAmount / 2);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _rewardAmount / 2);
   }
 
   function test_ASingleUserDepositsPartiallyThroughTheDuration() public {
     address _depositor = address(0xde80517);
     uint256 _stakeAmount = 1000e18;
     uint256 _rewardAmount = 500e6;
-    vm.warp(block.timestamp + 1234);
 
     // The contract is notified of a reward
     uniStaker.notifyRewardsAmount(_rewardAmount);
@@ -891,7 +905,7 @@ contract StakingScenarios is UniStakerRewardsTest {
     // Jump to the end of the duration
     vm.warp(block.timestamp + uniStaker.rewardDuration() / 3);
 
-    assertWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount / 3);
   }
 
   function test_OneUserStakesThroughTheDurationAndAnotherStakesTowardTheEnd() public {
@@ -899,7 +913,6 @@ contract StakingScenarios is UniStakerRewardsTest {
     address _depositor2 = address(0xcafe);
     uint256 _stakeAmount = 1000e18;
     uint256 _rewardAmount = 500e6;
-    vm.warp(block.timestamp + 1234);
 
     // The first user stakes some tokens
     _boundMintAndStake(_depositor1, _stakeAmount, address(0x1));
@@ -919,8 +932,8 @@ contract StakingScenarios is UniStakerRewardsTest {
     // Depositor 2 earns 1/2 the rewards for 1/3rd of the duration time
     uint256 _depositor2ExpectedEarnings = _rewardAmount / 6;
 
-    assertWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
-    assertWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
   }
 
   function test_ASingleUserDepositsAllStakeAcrossMultipleRewards() public {
@@ -928,7 +941,6 @@ contract StakingScenarios is UniStakerRewardsTest {
     uint256 _stakeAmount = 1000e18;
     uint256 _rewardAmount1 = 500e6;
     uint256 _rewardAmount2 = 1500e6;
-    vm.warp(block.timestamp + 1234);
 
     // A user deposits staking tokens
     _boundMintAndStake(_depositor, _stakeAmount, address(0x1));
@@ -945,6 +957,6 @@ contract StakingScenarios is UniStakerRewardsTest {
     // period of 1/3rd of the duration, earned the full rewards, which comprised of 1/3rd of the
     // first reward and the full second reward
     uint256 _depositorExpectedEarnings = (2 * _rewardAmount1) / 3 + ((_rewardAmount1 / 3) + _rewardAmount2) / 3;
-    assertWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
   }
 }
