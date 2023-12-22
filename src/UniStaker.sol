@@ -11,6 +11,8 @@ contract UniStaker is ReentrancyGuard {
   type DepositIdentifier is uint256;
 
   error UniStaker__Unauthorized(bytes32 reason, address caller);
+  error UniStaker__InvalidRewardRate();
+  error UniStaker__InsufficientRewardBalance();
 
   struct Deposit {
     uint256 balance;
@@ -109,9 +111,8 @@ contract UniStaker is ReentrancyGuard {
       rewardRate = (remainingRewards + _amount) / rewardDuration;
     }
 
-    // TODO convert to if reverts
-    require(rewardRate > 0, "reward rate = 0");
-    //require((rewardRate * rewardDuration) <= REWARDS_TOKEN.balanceOf(address(this)), "amount > balance");
+    if (rewardRate == 0) revert UniStaker__InvalidRewardRate();
+    if ((rewardRate * rewardDuration) > REWARDS_TOKEN.balanceOf(address(this))) revert UniStaker__InsufficientRewardBalance();
 
     finishAt = block.timestamp + rewardDuration;
     updatedAt = block.timestamp;

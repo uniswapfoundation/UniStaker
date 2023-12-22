@@ -761,6 +761,33 @@ contract Withdraw is UniStakerTest {
 
 contract UniStakerRewardsTest is UniStakerTest {
 
+  // Because there will be (expected) rounding errors in the amount of rewards earned, this helper
+  // checks that the two integers are provided are within 1% of the lesser of the two numbers.
+  function assertLteWithinOnePercent(uint256 a, uint256 b) public {
+    if (a > b) {
+      emit log("Error: a <= b not satisfied");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
+
+      fail();
+    }
+
+    uint256 minBound = (b * 9900) / 10_000;
+
+    if (b < minBound) {
+      emit log("Error: a >= 0.99 * b not satisfied");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
+      emit log_named_uint("  minBound", minBound);
+
+      fail();
+    }
+  }
+
+  function percentOf(uint256 _amount, uint256 _percent) public pure returns (uint256 _percentOf) {
+    _percentOf = (_percent * _amount) / 100;
+  }
+
   // Helper methods for dumping contract state related to rewards calculation for debugging
   function __dumpDebugGlobalRewards() public view {
     console2.log("rewardDuration");
@@ -811,31 +838,14 @@ contract UniStakerRewardsTest is UniStakerTest {
       _boundedRewardAmount = bound(_rewardAmount, 200e6, 10_000_000e6);
   }
 
-  // Because there will be (expected) rounding errors in the amount of rewards earned, this helper
-  // checks that the two integers are provided are within 1% of the lesser of the two numbers.
-  function assertLteWithinOnePercent(uint256 a, uint256 b) public {
-    if (a > b) {
-      emit log("Error: a <= b not satisfied");
-      emit log_named_uint("  Expected", b);
-      emit log_named_uint("    Actual", a);
+  function _mintTransferAndNotifyReward(uint256 _amount) public {
+    address _notifier = address(0xace);
+    rewardToken.mint(_notifier, _amount);
 
-      fail();
-    }
-
-    uint256 minBound = (b * 9900) / 10_000;
-
-    if (b < minBound) {
-      emit log("Error: a >= 0.99 * b not satisfied");
-      emit log_named_uint("  Expected", b);
-      emit log_named_uint("    Actual", a);
-      emit log_named_uint("  minBound", minBound);
-
-      fail();
-    }
-  }
-
-  function percentOf(uint256 _amount, uint256 _percent) public pure returns (uint256 _percentOf) {
-    _percentOf = (_percent * _amount) / 100;
+    vm.startPrank(_notifier);
+    rewardToken.transfer(address(uniStaker), _amount);
+    uniStaker.notifyRewardsAmount(_amount);
+    vm.stopPrank();
   }
 }
 
@@ -852,7 +862,7 @@ contract Earned is UniStakerRewardsTest {
     // A user deposits staking tokens
     _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
     // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount);
+    _mintTransferAndNotifyReward(_rewardAmount);
     // The full duration passes
     _jumpAheadByPercentOfRewardDuration(101);
 
@@ -871,7 +881,7 @@ contract Earned is UniStakerRewardsTest {
     // A user deposits staking tokens
     _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
     // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount);
+    _mintTransferAndNotifyReward(_rewardAmount);
     // One third of the duration passes
     _jumpAheadByPercentOfRewardDuration(33);
 
@@ -896,7 +906,7 @@ contract Earned is UniStakerRewardsTest {
     // Another depositor deposits the same number of staking tokens
     _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
     // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount);
+    _mintTransferAndNotifyReward(_rewardAmount);
     // The full duration passes
     _jumpAheadByPercentOfRewardDuration(101);
 
@@ -914,7 +924,7 @@ contract Earned is UniStakerRewardsTest {
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount);
+    _mintTransferAndNotifyReward(_rewardAmount);
     // Two thirds of the duration time passes
     _jumpAheadByPercentOfRewardDuration(66);
     // A user deposits staking tokens
@@ -941,7 +951,7 @@ contract Earned is UniStakerRewardsTest {
     // A small amount of time passes
     _jumpAhead(3000);
     // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount);
+    _mintTransferAndNotifyReward(_rewardAmount);
     // Two thirds of the duration time elapses
     _jumpAheadByPercentOfRewardDuration(66);
     // A second user stakes the same amount of tokens
@@ -971,11 +981,11 @@ contract Earned is UniStakerRewardsTest {
     // A user stakes tokens
     _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
     // The contract is notified of a reward
-    uniStaker.notifyRewardsAmount(_rewardAmount1);
+    _mintTransferAndNotifyReward(_rewardAmount1);
     // Two thirds of duration elapses
     _jumpAheadByPercentOfRewardDuration(66);
     // The contract is notified of a new reward, which restarts the reward the duration
-    uniStaker.notifyRewardsAmount(_rewardAmount2);
+    _mintTransferAndNotifyReward(_rewardAmount2);
     // Another third of the duration time elapses
     _jumpAheadByPercentOfRewardDuration(34);
 
