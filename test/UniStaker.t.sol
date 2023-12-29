@@ -12,8 +12,8 @@ contract UniStakerTest is Test {
   UniStaker uniStaker;
 
   function setUp() public {
-    // set the block timestamp to a random value to avoid introducing assumptions into tests based
-    // on a starting timestamp of 0, which is the default
+    // Set the block timestamp to an arbitrary value to avoid introducing assumptions into tests based
+    // on a starting timestamp of 0, which is the default.
     _jumpAhead(1234);
 
     rewardToken = new ERC20Fake();
@@ -887,36 +887,8 @@ contract Earned is UniStakerRewardsTest {
     // One third of the duration passes
     _jumpAheadByPercentOfRewardDuration(33);
 
-    // reward rate: 200000000 / 604800 = 330.68783069
-    // time elapsed: (200819 - 1235) = 199584
-    // naive reward: 199584 * 330.68783069 = 66000000.00043296
-    // truncated version: 199584 * 330 = 65862720
-    // -----
-    // reward per token: (330.68783069 * (200819 - 1235) * 1000000000000000000) / 793526746987951807228916 = 83.17299984
-    // truncated reward per token: (330 * (200819 - 1235) * 1000000000000000000) / 793526746987951807228916 = 83
-    // earned: 793526746987951807228916 * 83.17299984 / 1000000000000000000 = 66000000.00026464
-    // earned truncated: 793526746987951807228916 * 83 / 1000000000000000000 = 65862720
-    // earned w/ wrong rpt: 793526746987951807228916 * 82 / 1000000000000000000 = 65069193.25301205
-
-    // rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt) * SCALE_FACTOR) / totalSupply;
-    // 0 + ((330 * (200819 - 1235)) * 1000000000000000000) / 793526746987951807228916
-
-    //__dumpDebugGlobalRewards();
-    //__dumpDebugDepositorRewards(_depositor);
-
     // The user should have earned one third of the rewards
     assertLteWithinOnePercent(uniStaker.earned(_depositor), percentOf(_rewardAmount, 33));
-  }
-
-  function test_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForPartialDuration() public {
-    //0x0000000000000000000000000000000000000001, 0x0000000000000000000000000000000000000000, 705449088077746987951807934365 [7.054e29], 0
-
-    testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForPartialDuration(
-      0x0000000000000000000000000000000000000001,
-      0x0000000000000000000000000000000000000000,
-      705449088077746987951807934365,
-      0
-    );
   }
 
   function testFuzz_CalculatesCorrectEarningsForTwoUsersThatDepositEqualStakeForFullDuration(
@@ -1070,6 +1042,56 @@ contract Earned is UniStakerRewardsTest {
     // depositor also earned all of the rewards for 40% of the duration, where the rewards being
     // earned were from the first reward notification.
     uint256 _depositor1ExpectedEarnings = percentOf(_rewardAmount1, 40) + _depositor2ExpectedEarnings;
+
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
+  }
+
+  function testFuzz_CalculatesCorrectEarningsWhenTwoUsersDepositDifferentAmountsForPartialDurationsAndThereAreMultipleRewards(
+    address _depositor1,
+    address _depositor2,
+    address _delegatee,
+    uint256 _stakeAmount1,
+    uint256 _stakeAmount2,
+    uint256 _rewardAmount1,
+    uint256 _rewardAmount2
+  ) public {
+    vm.assume(_depositor1 != _depositor2);
+    (_stakeAmount1, _rewardAmount1) = _boundToRealisticStakeAndReward(_stakeAmount1, _rewardAmount1);
+    (_stakeAmount2, _rewardAmount2) = _boundToRealisticStakeAndReward(_stakeAmount2, _rewardAmount2);
+
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount1);
+    // One quarter of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(25);
+    // A user stakes some tokens
+    _boundMintAndStake(_depositor1, _stakeAmount1, _delegatee);
+    // Another 40 percent of the duration time elapses
+    _jumpAheadByPercentOfRewardDuration(40);
+    // Another user stakes some tokens
+    _boundMintAndStake(_depositor2, _stakeAmount2, _delegatee);
+    // Another quarter of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(25);
+    // The contract receives another reward, resetting the duration
+    _mintTransferAndNotifyReward(_rewardAmount2);
+    // Another 20 percent of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(20);
+
+    // The total staked by both depositors together
+    uint256 _combinedStake = _stakeAmount1 + _stakeAmount2;
+    // These are the total rewards distributed by the contract after the second depositor adds
+    // their stake. It is the first reward for a quarter of the duration, plus the remaining 10% of
+    // the first reward, plus the second reward, for a fifth of the duration.
+    uint256 _combinedPhaseExpectedTotalRewards = percentOf(_rewardAmount1, 25) + percentOf(percentOf(_rewardAmount1, 10) + _rewardAmount2, 20);
+
+    // The second depositor should earn a share of the combined phase reward scaled by their
+    // portion of the total stake.
+    uint256 _depositor2ExpectedEarnings = (_stakeAmount2 * _combinedPhaseExpectedTotalRewards) / _combinedStake;
+
+    // The first depositor earned all of the rewards for 40% of the duration, where the rewards
+    // were from the first reward notification. The first depositor also earns a share of the
+    // combined phase rewards proportional to his share of the stake.
+    uint256 _depositor1ExpectedEarnings = percentOf(_rewardAmount1, 40) + (_stakeAmount1 * _combinedPhaseExpectedTotalRewards) / _combinedStake;
 
     assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
     assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
