@@ -1057,9 +1057,21 @@ contract Earned is UniStakerRewardsTest {
     // Another 20 percent of the duration elapses
     _jumpAheadByPercentOfRewardDuration(20);
 
-    uint256 _depositor1ExpectedEarnings = percentOf(_rewardAmount1, 40) + percentOf(percentOf(_rewardAmount1, 25), 50) + percentOf(percentOf(percentOf(_rewardAmount1, 90) + _rewardAmount2, 20), 50);
+    // The second depositor earns:
+    // * Half the rewards distributed (split with depositor 1) over 1/4 of the duration, where the
+    //   rewards being earned are all from the first reward notification
+    // * Half the rewards (split with depositor 1) over 1/5 of the duration, where the rewards
+    //   being earned are the remaining 10% of the first reward notification, plus the second
+    //   reward notification
+    uint256 _depositor2ExpectedEarnings = percentOf(percentOf(_rewardAmount1, 25), 50) + percentOf(percentOf(percentOf(_rewardAmount1, 10) + _rewardAmount2, 20), 50);
+
+    // The first depositor earns the same amount as the second depositor, since they had the same
+    // stake and thus split the rewards during the period where both were staking. But the first
+    // depositor also earned all of the rewards for 40% of the duration, where the rewards being
+    // earned were from the first reward notification.
+    uint256 _depositor1ExpectedEarnings = percentOf(_rewardAmount1, 40) + _depositor2ExpectedEarnings;
+
     assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
-    //console2.log(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
-    //revert();
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
   }
 }
