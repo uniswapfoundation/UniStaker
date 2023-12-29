@@ -23,7 +23,7 @@ contract UniStaker is ReentrancyGuard {
 
   IERC20 public immutable REWARDS_TOKEN;
   IERC20Delegates public immutable STAKE_TOKEN;
-  uint256 private SCALE_FACTOR = 1e18;
+  uint256 private SCALE_FACTOR = 1e24;
 
   DepositIdentifier private nextDepositId;
 

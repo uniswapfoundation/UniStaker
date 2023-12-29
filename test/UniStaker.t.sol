@@ -774,7 +774,7 @@ contract UniStakerRewardsTest is UniStakerTest {
 
     uint256 minBound = (b * 9900) / 10_000;
 
-    if (b < minBound) {
+    if (a < minBound) {
       emit log("Error: a >= 0.99 * b not satisfied");
       emit log_named_uint("  Expected", b);
       emit log_named_uint("    Actual", a);
@@ -790,6 +790,8 @@ contract UniStakerRewardsTest is UniStakerTest {
 
   // Helper methods for dumping contract state related to rewards calculation for debugging
   function __dumpDebugGlobalRewards() public view {
+    console2.log("reward balance");
+    console2.log(rewardToken.balanceOf(address(uniStaker)));
     console2.log("rewardDuration");
     console2.log(uniStaker.rewardDuration());
     console2.log("finishAt");
@@ -885,8 +887,36 @@ contract Earned is UniStakerRewardsTest {
     // One third of the duration passes
     _jumpAheadByPercentOfRewardDuration(33);
 
+    // reward rate: 200000000 / 604800 = 330.68783069
+    // time elapsed: (200819 - 1235) = 199584
+    // naive reward: 199584 * 330.68783069 = 66000000.00043296
+    // truncated version: 199584 * 330 = 65862720
+    // -----
+    // reward per token: (330.68783069 * (200819 - 1235) * 1000000000000000000) / 793526746987951807228916 = 83.17299984
+    // truncated reward per token: (330 * (200819 - 1235) * 1000000000000000000) / 793526746987951807228916 = 83
+    // earned: 793526746987951807228916 * 83.17299984 / 1000000000000000000 = 66000000.00026464
+    // earned truncated: 793526746987951807228916 * 83 / 1000000000000000000 = 65862720
+    // earned w/ wrong rpt: 793526746987951807228916 * 82 / 1000000000000000000 = 65069193.25301205
+
+    // rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt) * SCALE_FACTOR) / totalSupply;
+    // 0 + ((330 * (200819 - 1235)) * 1000000000000000000) / 793526746987951807228916
+
+    //__dumpDebugGlobalRewards();
+    //__dumpDebugDepositorRewards(_depositor);
+
     // The user should have earned one third of the rewards
     assertLteWithinOnePercent(uniStaker.earned(_depositor), percentOf(_rewardAmount, 33));
+  }
+
+  function test_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForPartialDuration() public {
+    //0x0000000000000000000000000000000000000001, 0x0000000000000000000000000000000000000000, 705449088077746987951807934365 [7.054e29], 0
+
+    testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForPartialDuration(
+      0x0000000000000000000000000000000000000001,
+      0x0000000000000000000000000000000000000000,
+      705449088077746987951807934365,
+      0
+    );
   }
 
   function testFuzz_CalculatesCorrectEarningsForTwoUsersThatDepositEqualStakeForFullDuration(
@@ -996,5 +1026,40 @@ contract Earned is UniStakerRewardsTest {
     // reward plus the second reward.
     uint256 _depositorExpectedEarnings = percentOf(_rewardAmount1, 66) + percentOf(percentOf(_rewardAmount1, 34) + _rewardAmount2, 34);
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
+  }
+
+  function testFuzz_CalculatesCorrectEarningsWhenTwoUsersDepositForPartialDurationsAndThereAreMultipleRewards(
+    address _depositor1,
+    address _depositor2,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount1,
+    uint256 _rewardAmount2
+  ) public {
+    vm.assume(_depositor1 != _depositor2);
+    (_stakeAmount, _rewardAmount1) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount1);
+    (_stakeAmount, _rewardAmount2) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount2);
+
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount1);
+    // One quarter of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(25);
+    // A user stakes some tokens
+    _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
+    // Another 40 percent of the duration time elapses
+    _jumpAheadByPercentOfRewardDuration(40);
+    // Another user stakes some tokens
+    _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
+    // Another quarter of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(25);
+    // The contract receives another reward, resetting the duration
+    _mintTransferAndNotifyReward(_rewardAmount2);
+    // Another 20 percent of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(20);
+
+    uint256 _depositor1ExpectedEarnings = percentOf(_rewardAmount1, 40) + percentOf(percentOf(_rewardAmount1, 25), 50) + percentOf(percentOf(percentOf(_rewardAmount1, 90) + _rewardAmount2, 20), 50);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    //console2.log(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    //revert();
   }
 }
