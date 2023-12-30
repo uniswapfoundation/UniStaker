@@ -23,6 +23,7 @@ contract UniStaker is ReentrancyGuard {
 
   IERC20 public immutable REWARDS_TOKEN;
   IERC20Delegates public immutable STAKE_TOKEN;
+  address public immutable REWARDS_NOTIFIER;
   uint256 private constant SCALE_FACTOR = 1e24;
 
   DepositIdentifier private nextDepositId;
@@ -45,9 +46,10 @@ contract UniStaker is ReentrancyGuard {
   mapping(address account => uint256) public userRewardPerTokenPaid;
   mapping(address account => uint256 amount) public rewards;
 
-  constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken) {
+  constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken, address _rewardsNotifier) {
     REWARDS_TOKEN = _rewardsToken;
     STAKE_TOKEN = _stakeToken;
+    REWARDS_NOTIFIER = _rewardsNotifier;
   }
 
   function lastTimeRewardApplicable() public view returns (uint256) {
@@ -97,8 +99,10 @@ contract UniStaker is ReentrancyGuard {
     _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
   }
 
-  // TODO: this needs to be a restricted method
   function notifyRewardsAmount(uint256 _amount) external {
+    if (msg.sender != REWARDS_NOTIFIER) revert UniStaker__Unauthorized("not notifier", msg.sender);
+    // TODO: It looks like the only thing we actually need to do here is update the
+    // rewardPerTokenStored value. Can we save gas by doing only that?
     _updateReward(address(0));
 
     if (block.timestamp >= finishAt) {

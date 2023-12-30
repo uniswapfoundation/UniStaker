@@ -9,6 +9,7 @@ import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
 contract UniStakerTest is Test {
   ERC20Fake rewardToken;
   ERC20VotesMock govToken;
+  address rewardsNotifier;
   UniStaker uniStaker;
 
   function setUp() public {
@@ -17,12 +18,15 @@ contract UniStakerTest is Test {
     _jumpAhead(1234);
 
     rewardToken = new ERC20Fake();
-    vm.label(address(rewardToken), "Reward Token");
+    vm.label(address(rewardToken), "Rewards Token");
 
     govToken = new ERC20VotesMock();
     vm.label(address(govToken), "Governance Token");
 
-    uniStaker = new UniStaker(rewardToken, govToken);
+    rewardsNotifier = address(0xaffab1ebeef);
+    vm.label(rewardsNotifier, "Rewards Notifier");
+
+    uniStaker = new UniStaker(rewardToken, govToken, rewardsNotifier);
     vm.label(address(uniStaker), "UniStaker");
   }
 
@@ -96,18 +100,22 @@ contract UniStakerTest is Test {
 }
 
 contract Constructor is UniStakerTest {
-  function test_SetsTheRewardTokenAndStakeToken() public {
+  function test_SetsTheRewardTokenStakeTokenAndRewardsNotifier() public {
     assertEq(address(uniStaker.REWARDS_TOKEN()), address(rewardToken));
     assertEq(address(uniStaker.STAKE_TOKEN()), address(govToken));
+    assertEq(uniStaker.REWARDS_NOTIFIER(), rewardsNotifier);
   }
 
-  function testFuzz_SetsTheRewardTokenAndStakeTokenToArbitraryAddresses(
-    address _rewardToken,
-    address _stakeToken
+  function testFuzz_SetsTheRewardsTokenStakeTokenAndRewardsNotifierToArbitraryAddresses(
+    address _rewardsToken,
+    address _stakeToken,
+    address _rewardsNotifier
   ) public {
-    UniStaker _uniStaker = new UniStaker(IERC20(_rewardToken), IERC20Delegates(_stakeToken));
-    assertEq(address(_uniStaker.REWARDS_TOKEN()), address(_rewardToken));
+    UniStaker _uniStaker =
+      new UniStaker(IERC20(_rewardsToken), IERC20Delegates(_stakeToken), _rewardsNotifier);
+    assertEq(address(_uniStaker.REWARDS_TOKEN()), address(_rewardsToken));
     assertEq(address(_uniStaker.STAKE_TOKEN()), address(_stakeToken));
+    assertEq(_uniStaker.REWARDS_NOTIFIER(), _rewardsNotifier);
   }
 }
 
@@ -755,6 +763,27 @@ contract UniStakerRewardsTest is UniStakerTest {
     }
   }
 
+  // This helper is for normal rounding errors, i.e. if the number might be truncated down by 1
+  function assertLteWithinOneUnit(uint256 a, uint256 b) public {
+    if (a > b) {
+      emit log("Error: a <= b not satisfied");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
+
+      fail();
+    }
+
+    uint256 minBound = b - 1;
+
+    if (!((a == b) || (a == minBound))) {
+      emit log("Error: a == b || a  == b-1");
+      emit log_named_uint("  Expected", b);
+      emit log_named_uint("    Actual", a);
+
+      fail();
+    }
+  }
+
   function _percentOf(uint256 _amount, uint256 _percent) public pure returns (uint256) {
     return (_percent * _amount) / 100;
   }
@@ -801,21 +830,147 @@ contract UniStakerRewardsTest is UniStakerTest {
     _jumpAhead(_seconds);
   }
 
+  function _boundToRealisticReward(uint256 _rewardAmount)
+    public
+    view
+    returns (uint256 _boundedRewardAmount)
+  {
+    _boundedRewardAmount = bound(_rewardAmount, 200e6, 10_000_000e18);
+  }
+
   function _boundToRealisticStakeAndReward(uint256 _stakeAmount, uint256 _rewardAmount)
     public
     view
     returns (uint256 _boundedStakeAmount, uint256 _boundedRewardAmount)
   {
     _boundedStakeAmount = bound(_stakeAmount, 0.1e18, 25_000_000e18);
-    _boundedRewardAmount = bound(_rewardAmount, 200e6, 10_000_000e18);
+    _boundedRewardAmount = _boundToRealisticReward(_rewardAmount);
   }
 
   function _mintTransferAndNotifyReward(uint256 _amount) public {
-    address _notifier = address(0xace);
-    rewardToken.mint(_notifier, _amount);
+    rewardToken.mint(rewardsNotifier, _amount);
 
-    vm.startPrank(_notifier);
+    vm.startPrank(rewardsNotifier);
     rewardToken.transfer(address(uniStaker), _amount);
+    uniStaker.notifyRewardsAmount(_amount);
+    vm.stopPrank();
+  }
+}
+
+contract NotifyRewardsAmount is UniStakerRewardsTest {
+  function testFuzz_UpdatesTheRewardRate(uint256 _amount) public {
+    _amount = _boundToRealisticReward(_amount);
+    _mintTransferAndNotifyReward(_amount);
+
+    uint256 _expectedRewardRate = _amount / uniStaker.rewardDuration();
+    assertEq(uniStaker.rewardRate(), _expectedRewardRate);
+  }
+
+  function testFuzz_UpdatesTheRewardRateOnASecondCall(uint256 _amount1, uint256 _amount2) public {
+    _amount1 = _boundToRealisticReward(_amount1);
+    _amount2 = _boundToRealisticReward(_amount2);
+
+    _mintTransferAndNotifyReward(_amount1);
+    uint256 _expectedRewardRate = _amount1 / uniStaker.rewardDuration();
+    assertEq(uniStaker.rewardRate(), _expectedRewardRate);
+
+    _mintTransferAndNotifyReward(_amount2);
+    _expectedRewardRate = (_amount1 + _amount2) / uniStaker.rewardDuration();
+    assertLteWithinOneUnit(uniStaker.rewardRate(), _expectedRewardRate);
+  }
+
+  function testFuzz_UpdatesTheAccrualTimestamps(uint256 _amount, uint256 _jumpTime) public {
+    _amount = _boundToRealisticReward(_amount);
+    _jumpTime = bound(_jumpTime, 0, 50_000 days); // prevent overflow in timestamps
+    uint256 _futureTimestamp = block.timestamp + _jumpTime;
+    _jumpAhead(_jumpTime);
+
+    _mintTransferAndNotifyReward(_amount);
+    uint256 _expectedFinishTimestamp = _futureTimestamp + uniStaker.rewardDuration();
+
+    assertEq(uniStaker.updatedAt(), _futureTimestamp);
+    assertEq(uniStaker.finishAt(), _expectedFinishTimestamp);
+  }
+
+  function testFuzz_UpdatesTheStoredRewardPerTokenAccumulator(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    // In order to force calculation of a non-zero, there must be some staked supply, so we do
+    // that deposit first
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // We will jump ahead by some percentage of the duration
+    _durationPercent = bound(_durationPercent, 1, 100);
+
+    // Now the contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // Some time elapses
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+    // We make another reward which should write the non-zero reward amount
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // Sanity check on our test assumptions
+    require(
+      uniStaker.rewardPerToken() != 0,
+      "Broken test assumption: expecting a non-zero reward accumulator"
+    );
+
+    // We are not testing the calculation of the reward amount, but only that the value in storage
+    // has been updated on reward notification and thus matches the "live" calculation.
+    assertEq(uniStaker.rewardPerTokenStored(), uniStaker.rewardPerToken());
+  }
+
+  function testFuzz_RevertIf_CallerIsNotTheRewardsNotifier(uint256 _amount, address _notNotifier)
+    public
+  {
+    vm.assume(_notNotifier != rewardsNotifier && _notNotifier != address(0));
+    _amount = _boundToRealisticReward(_amount);
+
+    rewardToken.mint(_notNotifier, _amount);
+
+    vm.startPrank(_notNotifier);
+    rewardToken.transfer(address(uniStaker), _amount);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not notifier"), _notNotifier
+      )
+    );
+    uniStaker.notifyRewardsAmount(_amount);
+    vm.stopPrank();
+  }
+
+  function testFuzz_RevertIf_RewardAmountIsTooSmall(uint256 _amount) public {
+    // If the amount is less than the rewards duration the reward rate will be truncated to 0
+    _amount = bound(_amount, 0, uniStaker.rewardDuration() - 1);
+    rewardToken.mint(rewardsNotifier, _amount);
+
+    vm.startPrank(rewardsNotifier);
+    rewardToken.transfer(address(uniStaker), _amount);
+    vm.expectRevert(UniStaker.UniStaker__InvalidRewardRate.selector);
+    uniStaker.notifyRewardsAmount(_amount);
+    vm.stopPrank();
+  }
+
+  function testFuzz_RevertIf_InsufficientRewardsAreTransferredToContract(
+    uint256 _amount,
+    uint256 _transferPercent
+  ) public {
+    _amount = _boundToRealisticReward(_amount);
+    // Transfer (at most) 99% of the reward amount. We calculate as a percentage rather than simply
+    // an amount - 1 because rounding errors when calculating the reward rate, which favor the
+    // staking contract can actually allow for something just below the amount to meet the criteria
+    _transferPercent = _bound(_transferPercent, 1, 99);
+    uint256 _transferAmount = _percentOf(_amount, _transferPercent);
+    rewardToken.mint(rewardsNotifier, _amount);
+
+    vm.startPrank(rewardsNotifier);
+    // Something less than the supposed reward is sent
+    rewardToken.transfer(address(uniStaker), _transferAmount);
+    // The reward notification should revert because the contract doesn't have enough tokens
+    vm.expectRevert(UniStaker.UniStaker__InsufficientRewardBalance.selector);
     uniStaker.notifyRewardsAmount(_amount);
     vm.stopPrank();
   }
