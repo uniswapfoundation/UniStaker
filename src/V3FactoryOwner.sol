@@ -50,6 +50,11 @@ contract V3FactoryOwner {
     admin = _newAdmin;
   }
 
+  function transferFactoryOwnership(address _newOwner) external {
+    _revertIfNotAdmin();
+    FACTORY.setOwner(_newOwner);
+  }
+
   function enableFeeAmount(uint24 _fee, int24 _tickSpacing) external {
     _revertIfNotAdmin();
     FACTORY.enableFeeAmount(_fee, _tickSpacing);
