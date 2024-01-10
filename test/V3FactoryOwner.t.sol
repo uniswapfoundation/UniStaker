@@ -22,13 +22,21 @@ contract Constructor is V3FactoryOwnerTest {
   }
 
   function testFuzz_SetTheAdminToAnArbitraryAddress(address _admin) public {
+    vm.assume(_admin != address(0));
     V3FactoryOwner _factoryOwner = new V3FactoryOwner(_admin);
     assertEq(_factoryOwner.admin(), _admin);
+  }
+
+  function test_RevertIf_TheAdminIsAddressZero() public {
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InvalidAddress.selector);
+    new V3FactoryOwner(address(0));
   }
 }
 
 contract SetAdmin is V3FactoryOwnerTest {
   function testFuzz_UpdatesTheAdminWhenCalledByTheCurrentAdmin(address _newAdmin) public {
+    vm.assume(_newAdmin != address(0));
+
     vm.prank(admin);
     factoryOwner.setAdmin(_newAdmin);
 
@@ -36,6 +44,8 @@ contract SetAdmin is V3FactoryOwnerTest {
   }
 
   function testFuzz_EmitsAnEventWhenUpdatingTheAdmin(address _newAdmin) public {
+    vm.assume(_newAdmin != address(0));
+
     vm.expectEmit(true, true, true, true);
     vm.prank(admin);
     emit AdminUpdated(admin, _newAdmin);
@@ -50,5 +60,12 @@ contract SetAdmin is V3FactoryOwnerTest {
     vm.expectRevert(V3FactoryOwner.V3FactoryOwner__Unauthorized.selector);
     vm.prank(_notAdmin);
     factoryOwner.setAdmin(_newAdmin);
+  }
+
+  function test_RevertIf_TheNewAdminIsAddressZero() public {
+    vm.prank(admin);
+
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InvalidAddress.selector);
+    factoryOwner.setAdmin(address(0));
   }
 }
