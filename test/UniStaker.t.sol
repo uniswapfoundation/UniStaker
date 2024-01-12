@@ -468,6 +468,61 @@ contract Stake is UniStakerTest {
   }
 }
 
+contract Alter is UniStakerTest {
+  function testFuzz_AllowsStakerToUpdateTheirDelegatee(
+    address _depositor,
+    uint256 _depositAmount,
+    address _firstDelegatee,
+    address _beneficiary,
+    address _newDelegatee
+    ) public {
+      vm.assume(_newDelegatee != address(0) && _newDelegatee != _firstDelegatee);
+
+      UniStaker.DepositIdentifier _depositId;
+      (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
+      address _firstSurrogate = address(uniStaker.surrogates(_firstDelegatee));
+
+      vm.prank(_depositor);
+      uniStaker.alter(_depositId, _newDelegatee, address(0));
+
+      UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+      address _newSurrogate = address(uniStaker.surrogates(_deposit.delegatee));
+
+      assertEq(_deposit.delegatee, _newDelegatee);
+      assertEq(govToken.balanceOf(_newSurrogate), _depositAmount);
+      assertEq(govToken.balanceOf(_firstSurrogate), 0);
+    }
+
+    function testFuzz_AllowsStakerToUpdateTheirBeneficiary(
+      address _depositor,
+      uint256 _depositAmount,
+      address _delegatee,
+      address _firstBeneficiary,
+      address _newBeneficiary
+    ) public {
+      vm.assume(_newBeneficiary != address(0) && _newBeneficiary != _firstBeneficiary);
+
+      UniStaker.DepositIdentifier _depositId;
+      (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
+
+      vm.prank(_depositor);
+      uniStaker.alter(_depositId, address(0), _newBeneficiary);
+
+      UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+      assertEq(_deposit.beneficiary, _newBeneficiary);
+      assertEq(uniStaker.earningPower(_newBeneficiary), _depositAmount);
+      assertEq(uniStaker.earningPower(_firstBeneficiary), 0);
+      // TODO: How do we ensure the "updateReward" has been called for old & new beneficiary
+    }
+
+    // TODO: change both at once
+    // TODO: call with existing addr is OK
+    // TODO: reverts if not owner
+    // TODO: reverts if id isn't valid
+    // TODO: No-op if everything is 0
+}
+
 contract Withdraw is UniStakerTest {
   function testFuzz_AllowsDepositorToWithdrawStake(
     address _depositor,
