@@ -86,9 +86,34 @@ contract UniStaker is ReentrancyGuard {
     _depositId = _stake(_amount, _delegatee, _beneficiary);
   }
 
+  function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) public nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit);
+
+    DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
+    deposit.delegatee = _newDelegatee;
+    DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
+    _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
+  }
+
+  function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary)
+    public
+    nonReentrant
+  {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit);
+
+    _updateReward(deposit.beneficiary);
+    earningPower[deposit.beneficiary] -= deposit.balance;
+
+    _updateReward(_newBeneficiary);
+    deposit.beneficiary = _newBeneficiary;
+    earningPower[_newBeneficiary] += deposit.balance;
+  }
+
   function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
     Deposit storage deposit = deposits[_depositId];
-    if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
+    _revertIfNotDepositOwner(deposit);
 
     _updateReward(deposit.beneficiary);
 
@@ -175,5 +200,9 @@ contract UniStaker is ReentrancyGuard {
 
     rewards[_beneficiary] = earned(_beneficiary);
     userRewardPerTokenPaid[_beneficiary] = rewardPerTokenStored;
+  }
+
+  function _revertIfNotDepositOwner(Deposit storage deposit) internal view {
+    if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
   }
 }

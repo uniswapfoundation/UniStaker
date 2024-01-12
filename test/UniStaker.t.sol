@@ -468,6 +468,192 @@ contract Stake is UniStakerTest {
   }
 }
 
+contract AlterDelegatee is UniStakerTest {
+  function testFuzz_AllowsStakerToUpdateTheirDelegatee(
+    address _depositor,
+    uint256 _depositAmount,
+    address _firstDelegatee,
+    address _beneficiary,
+    address _newDelegatee
+  ) public {
+    vm.assume(_newDelegatee != address(0) && _newDelegatee != _firstDelegatee);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
+    address _firstSurrogate = address(uniStaker.surrogates(_firstDelegatee));
+
+    vm.prank(_depositor);
+    uniStaker.alterDelegatee(_depositId, _newDelegatee);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    address _newSurrogate = address(uniStaker.surrogates(_deposit.delegatee));
+
+    assertEq(_deposit.delegatee, _newDelegatee);
+    assertEq(govToken.balanceOf(_newSurrogate), _depositAmount);
+    assertEq(govToken.balanceOf(_firstSurrogate), 0);
+  }
+
+  function testFuzz_AllowsStakerToReiterateTheirDelegatee(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    address _beforeSurrogate = address(uniStaker.surrogates(_delegatee));
+
+    // We are calling alterDelegatee with the address that is already the delegatee to ensure that
+    // doing so does not break anything other than wasting the user's gas
+    vm.prank(_depositor);
+    uniStaker.alterDelegatee(_depositId, _delegatee);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    address _afterSurrogate = address(uniStaker.surrogates(_deposit.delegatee));
+
+    assertEq(_deposit.delegatee, _delegatee);
+    assertEq(_beforeSurrogate, _afterSurrogate);
+    assertEq(govToken.balanceOf(_afterSurrogate), _depositAmount);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
+    address _depositor,
+    address _notDepositor,
+    uint256 _depositAmount,
+    address _firstDelegatee,
+    address _beneficiary,
+    address _newDelegatee
+  ) public {
+    vm.assume(
+      _depositor != _notDepositor && _newDelegatee != address(0) && _newDelegatee != _firstDelegatee
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
+
+    vm.prank(_notDepositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    uniStaker.alterDelegatee(_depositId, _newDelegatee);
+  }
+
+  function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
+    address _depositor,
+    UniStaker.DepositIdentifier _depositId,
+    address _newDelegatee
+  ) public {
+    vm.assume(_depositor != address(0));
+
+    // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
+    // alter one should revert. We rely on the default owner of any uninitialized deposit being
+    // address zero, which means the address attempting to alter it won't be able to.
+    vm.prank(_depositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+      )
+    );
+    uniStaker.alterDelegatee(_depositId, _newDelegatee);
+  }
+}
+
+contract AlterBeneficiary is UniStakerTest {
+  function testFuzz_AllowsStakerToUpdateTheirBeneficiary(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _firstBeneficiary,
+    address _newBeneficiary
+  ) public {
+    vm.assume(_newBeneficiary != address(0) && _newBeneficiary != _firstBeneficiary);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
+
+    vm.prank(_depositor);
+    uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.beneficiary, _newBeneficiary);
+    assertEq(uniStaker.earningPower(_newBeneficiary), _depositAmount);
+    assertEq(uniStaker.earningPower(_firstBeneficiary), 0);
+  }
+
+  function testFuzz_AllowsStakerToReiterateTheirBeneficiary(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    // We are calling alterBeneficiary with the address that is already the beneficiary to ensure
+    // that doing so does not break anything other than wasting the user's gas
+    vm.prank(_depositor);
+    uniStaker.alterBeneficiary(_depositId, _beneficiary);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.beneficiary, _beneficiary);
+    assertEq(uniStaker.earningPower(_beneficiary), _depositAmount);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
+    address _depositor,
+    address _notDepositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _firstBeneficiary,
+    address _newBeneficiary
+  ) public {
+    vm.assume(
+      _notDepositor != _depositor && _newBeneficiary != address(0)
+        && _newBeneficiary != _firstBeneficiary
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
+
+    vm.prank(_notDepositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
+  }
+
+  function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
+    address _depositor,
+    UniStaker.DepositIdentifier _depositId,
+    address _newBeneficiary
+  ) public {
+    vm.assume(_depositor != address(0));
+
+    // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
+    // alter one should revert. We rely on the default owner of any uninitialized deposit being
+    // address zero, which means the address attempting to alter it won't be able to.
+    vm.prank(_depositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+      )
+    );
+    uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
+  }
+}
+
 contract Withdraw is UniStakerTest {
   function testFuzz_AllowsDepositorToWithdrawStake(
     address _depositor,
@@ -994,6 +1180,64 @@ contract Earned is UniStakerRewardsTest {
 
     // The user should have earned all the rewards
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
+  }
+
+  function testFuzz_CalculatesCorrectEarningsWhenASingleDepositorAssignsABeneficiaryAndStakesForFullDuration(
+    address _depositor,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+
+    // A user deposits staking tokens w/ a beneficiary
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // The full duration passes
+    _jumpAheadByPercentOfRewardDuration(101);
+
+    // The beneficiary should have earned all the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_beneficiary), _rewardAmount);
+  }
+
+  function testFuzz_CalculatesCorrectEarningsWhenASingleDepositorUpdatesTheirBeneficiary(
+    address _depositor,
+    address _delegatee,
+    address _beneficiary1,
+    address _beneficiary2,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _percentDuration
+  ) public {
+    vm.assume(
+      _beneficiary1 != _beneficiary2 && _beneficiary1 != address(0) && _beneficiary2 != address(0)
+    );
+
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _percentDuration = bound(_percentDuration, 0, 100);
+
+    // A user deposits staking tokens w/ a beneficiary
+    (, UniStaker.DepositIdentifier _depositId) =
+      _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary1);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // Part of the rewards duration passes
+    _jumpAheadByPercentOfRewardDuration(_percentDuration);
+    // The depositor alters their beneficiary
+    vm.prank(_depositor);
+    uniStaker.alterBeneficiary(_depositId, _beneficiary2);
+    // The rest of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(100 - _percentDuration);
+
+    // The beneficiary should have earned all the rewards
+    assertLteWithinOnePercent(
+      uniStaker.earned(_beneficiary1), _percentOf(_rewardAmount, _percentDuration)
+    );
+    assertLteWithinOnePercent(
+      uniStaker.earned(_beneficiary2), _percentOf(_rewardAmount, 100 - _percentDuration)
+    );
   }
 
   function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForPartialDuration(
