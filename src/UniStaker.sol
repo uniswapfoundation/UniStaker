@@ -86,6 +86,21 @@ contract UniStaker is ReentrancyGuard {
     _depositId = _stake(_amount, _delegatee, _beneficiary);
   }
 
+  function stakeMore(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit);
+
+    _updateReward(deposit.beneficiary);
+
+    DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
+    _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
+
+    totalSupply += _amount;
+    totalDeposits[msg.sender] += _amount;
+    earningPower[deposit.beneficiary] += _amount;
+    deposit.balance += _amount;
+  }
+
   function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) public nonReentrant {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
