@@ -86,24 +86,22 @@ contract UniStaker is ReentrancyGuard {
     _depositId = _stake(_amount, _delegatee, _beneficiary);
   }
 
-  function alter(DepositIdentifier _depositId, address _newDelegatee, address _newBeneficiary) public nonReentrant {
+  function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) public nonReentrant {
     Deposit storage deposit = deposits[_depositId];
+    DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
+    deposit.delegatee = _newDelegatee;
+    DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
+    _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
+  }
 
-    if (_newDelegatee != address(0)) {
-      DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
-      deposit.delegatee = _newDelegatee;
-      DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
-      _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
-    }
-
-    if (_newBeneficiary != address(0)) {
-      _updateReward(deposit.beneficiary);
-      earningPower[deposit.beneficiary] -= deposit.balance;
+  function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary) public nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _updateReward(deposit.beneficiary);
+     earningPower[deposit.beneficiary] -= deposit.balance;
 
       _updateReward(_newBeneficiary);
       deposit.beneficiary = _newBeneficiary;
       earningPower[_newBeneficiary] += deposit.balance;
-    }
   }
 
   function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
