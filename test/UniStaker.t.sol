@@ -538,9 +538,28 @@ contract AlterDelegatee is UniStakerTest {
       uniStaker.alterDelegatee(_depositId, _newDelegatee);
   }
 
+  function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
+    address _depositor,
+    UniStaker.DepositIdentifier _depositId,
+    address _newDelegatee
+  ) public {
+    vm.assume(_depositor != address(0));
+
+    // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
+    // alter one should revert. We rely on the default owner of any uninitialized deposit being
+    // address zero, which means the address attempting to alter it won't be able to.
+    vm.prank(_depositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+      )
+    );
+    uniStaker.alterDelegatee(_depositId, _newDelegatee);
+  }
+
   // x TODO: call with existing addr is OK
-  // TODO: reverts if not owner
-  // TODO: reverts if id isn't valid
+  // x TODO: reverts if not owner
+  // x TODO: reverts if id isn't valid
   // TODO: reverts on zero addresses (all over the place)
 }
 
@@ -609,6 +628,25 @@ contract AlterBeneficiary is UniStakerTest {
       );
       uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
     }
+
+  function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
+    address _depositor,
+    UniStaker.DepositIdentifier _depositId,
+    address _newBeneficiary
+  ) public {
+    vm.assume(_depositor != address(0));
+
+    // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
+    // alter one should revert. We rely on the default owner of any uninitialized deposit being
+    // address zero, which means the address attempting to alter it won't be able to.
+    vm.prank(_depositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+      )
+    );
+    uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
+  }
 }
 
 contract Withdraw is UniStakerTest {
