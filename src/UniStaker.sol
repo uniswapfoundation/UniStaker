@@ -96,23 +96,29 @@ contract UniStaker is ReentrancyGuard {
     _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
   }
 
-  function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary) public nonReentrant {
+  function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary)
+    public
+    nonReentrant
+  {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _updateReward(deposit.beneficiary);
-     earningPower[deposit.beneficiary] -= deposit.balance;
+    _updateGlobalReward();
 
-      _updateReward(_newBeneficiary);
-      deposit.beneficiary = _newBeneficiary;
-      earningPower[_newBeneficiary] += deposit.balance;
+    _updateBeneficiaryReward(deposit.beneficiary);
+    earningPower[deposit.beneficiary] -= deposit.balance;
+
+    _updateBeneficiaryReward(_newBeneficiary);
+    deposit.beneficiary = _newBeneficiary;
+    earningPower[_newBeneficiary] += deposit.balance;
   }
 
   function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _updateReward(deposit.beneficiary);
+    _updateGlobalReward();
+    _updateBeneficiaryReward(deposit.beneficiary);
 
     deposit.balance -= _amount; // overflow prevents withdrawing more than balance
     totalSupply -= _amount;
@@ -125,7 +131,7 @@ contract UniStaker is ReentrancyGuard {
     if (msg.sender != REWARDS_NOTIFIER) revert UniStaker__Unauthorized("not notifier", msg.sender);
     // TODO: It looks like the only thing we actually need to do here is update the
     // rewardPerTokenStored value. Can we save gas by doing only that?
-    _updateReward(address(0));
+    _updateGlobalReward();
 
     if (block.timestamp >= finishAt) {
       // TODO: Can we move the scale factor into the rewardRate? This should reduce rounding errors
@@ -170,7 +176,8 @@ contract UniStaker is ReentrancyGuard {
     internal
     returns (DepositIdentifier _depositId)
   {
-    _updateReward(_beneficiary);
+    _updateGlobalReward();
+    _updateBeneficiaryReward(_beneficiary);
 
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
     _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
@@ -188,13 +195,12 @@ contract UniStaker is ReentrancyGuard {
   }
 
   // TODO: rename snapshotReward?
-  // Extract into two methods global + user
-  function _updateReward(address _beneficiary) internal {
+  function _updateGlobalReward() internal {
     rewardPerTokenStored = rewardPerToken();
     updatedAt = lastTimeRewardApplicable();
+  }
 
-    if (_beneficiary == address(0)) return;
-
+  function _updateBeneficiaryReward(address _beneficiary) internal {
     rewards[_beneficiary] = earned(_beneficiary);
     userRewardPerTokenPaid[_beneficiary] = rewardPerTokenStored;
   }
