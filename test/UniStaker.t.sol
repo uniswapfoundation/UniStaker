@@ -43,6 +43,14 @@ contract UniStakerTest is Test {
     govToken.mint(_to, _amount);
   }
 
+  function _boundToRealisticStake(uint256 _stakeAmount)
+    public
+    view
+    returns (uint256 _boundedStakeAmount)
+  {
+    _boundedStakeAmount = bound(_stakeAmount, 0.1e18, 25_000_000e18);
+  }
+
   function _stake(address _depositor, uint256 _amount, address _delegatee)
     internal
     returns (UniStaker.DepositIdentifier _depositId)
@@ -465,6 +473,171 @@ contract Stake is UniStakerTest {
       _amount = uint256(keccak256(abi.encode(_amount)));
       _delegatee = address(uint160(uint256(keccak256(abi.encode(_delegatee)))));
     }
+  }
+}
+
+contract StakeMore is UniStakerTest {
+  function testFuzz_TransfersStakeToTheExistingSurrogate(
+    address _depositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    DelegationSurrogate _surrogate = uniStaker.surrogates(_deposit.delegatee);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _mintGovToken(_depositor, _addAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount);
+    uniStaker.stakeMore(_depositId, _addAmount);
+    vm.stopPrank();
+
+    assertEq(govToken.balanceOf(address(_surrogate)), _depositAmount + _addAmount);
+  }
+
+  function testFuzz_AddsToExistingBeneficiaryEarningPower(
+    address _depositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _mintGovToken(_depositor, _addAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount);
+    uniStaker.stakeMore(_depositId, _addAmount);
+    vm.stopPrank();
+
+    assertEq(uniStaker.earningPower(_beneficiary), _depositAmount + _addAmount);
+  }
+
+  function testFuzz_AddsToTheTotalSupply(
+    address _depositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _mintGovToken(_depositor, _addAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount);
+    uniStaker.stakeMore(_depositId, _addAmount);
+    vm.stopPrank();
+
+    assertEq(uniStaker.totalSupply(), _depositAmount + _addAmount);
+  }
+
+  function testFuzz_AddsToDepositorsTotalDeposits(
+    address _depositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _mintGovToken(_depositor, _addAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount);
+    uniStaker.stakeMore(_depositId, _addAmount);
+    vm.stopPrank();
+
+    assertEq(uniStaker.totalDeposits(_depositor), _depositAmount + _addAmount);
+  }
+
+  function testFuzz_AddsToTheDepositBalance(
+    address _depositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _mintGovToken(_depositor, _addAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount);
+    uniStaker.stakeMore(_depositId, _addAmount);
+    vm.stopPrank();
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.balance, _depositAmount + _addAmount);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
+    address _depositor,
+    address _notDepositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    vm.assume(_notDepositor != _depositor);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _mintGovToken(_depositor, _addAmount);
+
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount);
+
+    vm.prank(_notDepositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    uniStaker.stakeMore(_depositId, _addAmount);
+  }
+
+  function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
+    address _depositor,
+    UniStaker.DepositIdentifier _depositId,
+    uint256 _addAmount
+  ) public {
+    vm.assume(_depositor != address(0));
+    _addAmount = _boundToRealisticStake(_addAmount);
+
+    // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
+    // add stake to one should revert. We rely on the default owner of any uninitialized deposit
+    // being address zero, which means the address attempting to alter it won't be able to.
+    vm.prank(_depositor);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+      )
+    );
+    uniStaker.stakeMore(_depositId, _addAmount);
   }
 }
 
@@ -1029,7 +1202,7 @@ contract UniStakerRewardsTest is UniStakerTest {
     view
     returns (uint256 _boundedStakeAmount, uint256 _boundedRewardAmount)
   {
-    _boundedStakeAmount = bound(_stakeAmount, 0.1e18, 25_000_000e18);
+    _boundedStakeAmount = _boundToRealisticStake(_stakeAmount);
     _boundedRewardAmount = _boundToRealisticReward(_rewardAmount);
   }
 
@@ -1287,6 +1460,50 @@ contract Earned is UniStakerRewardsTest {
     // Each user should have earned half of the rewards
     assertLteWithinOnePercent(uniStaker.earned(_depositor1), _percentOf(_rewardAmount, 50));
     assertLteWithinOnePercent(uniStaker.earned(_depositor2), _percentOf(_rewardAmount, 50));
+  }
+
+  function testFuzz_CalculatesCorrectEarningsForTwoUsersWhenOneStakesMorePartiallyThroughTheDuration(
+    address _depositor1,
+    address _depositor2,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount
+  ) public {
+    vm.assume(_depositor1 != _depositor2);
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+
+    // A user deposits staking tokens
+    (, UniStaker.DepositIdentifier _depositId1) =
+      _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
+    // Some time passes
+    _jumpAhead(3000);
+    // Another depositor deposits the same number of staking tokens
+    _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // One third of the duration passes
+    _jumpAheadByPercentOfRewardDuration(34);
+    // The first user triples their deposit by staking 2x more
+    _mintGovToken(_depositor1, 2 * _stakeAmount);
+    vm.startPrank(_depositor1);
+    govToken.approve(address(uniStaker), 2 * _stakeAmount);
+    uniStaker.stakeMore(_depositId1, 2 * _stakeAmount);
+    vm.stopPrank();
+    // The rest of the duration passes
+    _jumpAheadByPercentOfRewardDuration(66);
+
+    // Depositor 1 earns half the reward for one third the time and three quarters for two thirds of
+    // the time
+    uint256 _depositor1ExpectedEarnings =
+      _percentOf(_percentOf(_rewardAmount, 50), 34) + _percentOf(_percentOf(_rewardAmount, 75), 66);
+    // Depositor 2 earns half the reward for one third the time and one quarter for two thirds of
+    // the time
+    uint256 _depositor2ExpectedEarnings =
+      _percentOf(_percentOf(_rewardAmount, 50), 34) + _percentOf(_percentOf(_rewardAmount, 25), 66);
+
+    // Each user should have earned half of the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
   }
 
   function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDuration(
