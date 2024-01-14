@@ -194,6 +194,34 @@ contract EnableFeeAmount is V3FactoryOwnerTest {
   }
 }
 
+contract SetFeeProtocol is V3FactoryOwnerTest {
+  function testFuzz_CurriesParametersToSetFeeProtocolToAPool(
+    uint8 _feeProtocol0,
+    uint8 _feeProtocol1
+  ) public {
+    _deployFactoryOwnerWithPayoutAmount(0);
+
+    vm.prank(admin);
+    factoryOwner.setFeeProtocol(pool, _feeProtocol0, _feeProtocol1);
+
+    assertEq(pool.lastParam__setFeeProtocol_feeProtocol0(), _feeProtocol0);
+    assertEq(pool.lastParam__setFeeProtocol_feeProtocol1(), _feeProtocol1);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheAdmin(
+    address _notAdmin,
+    uint8 _feeProtocol0,
+    uint8 _feeProtocol1
+  ) public {
+    _deployFactoryOwnerWithPayoutAmount(0);
+    vm.assume(_notAdmin != admin);
+
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__Unauthorized.selector);
+    vm.prank(_notAdmin);
+    factoryOwner.setFeeProtocol(pool, _feeProtocol0, _feeProtocol1);
+  }
+}
+
 contract ClaimFees is V3FactoryOwnerTest {
   function testFuzz_TransfersThePayoutFromTheCallerToTheRewardReceiver(
     uint256 _payoutAmount,

@@ -60,6 +60,15 @@ contract V3FactoryOwner {
     FACTORY.enableFeeAmount(_fee, _tickSpacing);
   }
 
+  function setFeeProtocol(
+    IUniswapV3PoolOwnerActions _pool,
+    uint8 _feeProtocol0,
+    uint8 _feeProtocol1
+  ) external {
+    _revertIfNotAdmin();
+    _pool.setFeeProtocol(_feeProtocol0, _feeProtocol1);
+  }
+
   function claimFees(
     IUniswapV3PoolOwnerActions _pool,
     address _recipient,
