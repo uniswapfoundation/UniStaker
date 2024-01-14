@@ -493,9 +493,55 @@ contract AlterDelegatee is UniStakerTest {
       assertEq(govToken.balanceOf(_firstSurrogate), 0);
   }
 
-  // TODO: call with existing addr is OK
+  function testFuzz_AllowsStakerToReiterateTheirDelegatee(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    address _beforeSurrogate = address(uniStaker.surrogates(_delegatee));
+
+    // We are calling alterDelegatee with the address that is already the delegatee to ensure that
+    // doing so does not break anything other than wasting the user's gas
+    vm.prank(_depositor);
+    uniStaker.alterDelegatee(_depositId, _delegatee);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    address _afterSurrogate = address(uniStaker.surrogates(_deposit.delegatee));
+
+    assertEq(_deposit.delegatee, _delegatee);
+    assertEq(_beforeSurrogate, _afterSurrogate);
+    assertEq(govToken.balanceOf(_afterSurrogate), _depositAmount);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
+    address _depositor,
+    address _notDepositor,
+    uint256 _depositAmount,
+    address _firstDelegatee,
+    address _beneficiary,
+    address _newDelegatee
+  ) public {
+      vm.assume(_depositor != _notDepositor && _newDelegatee != address(0) && _newDelegatee != _firstDelegatee);
+
+      UniStaker.DepositIdentifier _depositId;
+      (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
+
+      vm.prank(_notDepositor);
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        )
+      );
+      uniStaker.alterDelegatee(_depositId, _newDelegatee);
+  }
+
+  // x TODO: call with existing addr is OK
   // TODO: reverts if not owner
   // TODO: reverts if id isn't valid
+  // TODO: reverts on zero addresses (all over the place)
 }
 
 contract AlterBeneficiary is UniStakerTest {
@@ -520,6 +566,48 @@ contract AlterBeneficiary is UniStakerTest {
       assertEq(uniStaker.earningPower(_newBeneficiary), _depositAmount);
       assertEq(uniStaker.earningPower(_firstBeneficiary), 0);
       // TODO: How do we ensure the "updateReward" has been called for old & new beneficiary
+    }
+
+    function testFuzz_AllowsStakerToReiterateTheirBeneficiary(
+      address _depositor,
+      uint256 _depositAmount,
+      address _delegatee,
+      address _beneficiary
+    ) public {
+      UniStaker.DepositIdentifier _depositId;
+      (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+      // We are calling alterBeneficiary with the address that is already the beneficiary to ensure
+      // that doing so does not break anything other than wasting the user's gas
+      vm.prank(_depositor);
+      uniStaker.alterBeneficiary(_depositId, _beneficiary);
+
+      UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+      assertEq(_deposit.beneficiary, _beneficiary);
+      assertEq(uniStaker.earningPower(_beneficiary), _depositAmount);
+    }
+
+    function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
+      address _depositor,
+      address _notDepositor,
+      uint256 _depositAmount,
+      address _delegatee,
+      address _firstBeneficiary,
+      address _newBeneficiary
+    ) public {
+      vm.assume(_notDepositor != _depositor && _newBeneficiary != address(0) && _newBeneficiary != _firstBeneficiary);
+
+      UniStaker.DepositIdentifier _depositId;
+      (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
+
+      vm.prank(_notDepositor);
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        )
+      );
+      uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
     }
 }
 

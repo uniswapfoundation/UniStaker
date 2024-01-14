@@ -88,6 +88,7 @@ contract UniStaker is ReentrancyGuard {
 
   function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) public nonReentrant {
     Deposit storage deposit = deposits[_depositId];
+    if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
     DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
     deposit.delegatee = _newDelegatee;
     DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
@@ -96,6 +97,7 @@ contract UniStaker is ReentrancyGuard {
 
   function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary) public nonReentrant {
     Deposit storage deposit = deposits[_depositId];
+    if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
     _updateReward(deposit.beneficiary);
      earningPower[deposit.beneficiary] -= deposit.balance;
 
