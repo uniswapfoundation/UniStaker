@@ -142,6 +142,16 @@ contract UniStaker is ReentrancyGuard {
     _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
   }
 
+  function claimReward() external nonReentrant {
+    _updateReward(msg.sender);
+
+    uint256 _rewards = rewards[msg.sender];
+    if (_rewards == 0) return;
+    rewards[msg.sender] = 0;
+
+    SafeERC20.safeTransfer(REWARDS_TOKEN, msg.sender, _rewards);
+  }
+
   function notifyRewardsAmount(uint256 _amount) external {
     if (msg.sender != REWARDS_NOTIFIER) revert UniStaker__Unauthorized("not notifier", msg.sender);
     // TODO: It looks like the only thing we actually need to do here is update the
