@@ -55,6 +55,8 @@ contract UniStakerTest is Test {
     internal
     returns (UniStaker.DepositIdentifier _depositId)
   {
+    vm.assume(_delegatee != address(0));
+
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     _depositId = uniStaker.stake(_amount, _delegatee);
@@ -65,6 +67,8 @@ contract UniStakerTest is Test {
     internal
     returns (UniStaker.DepositIdentifier _depositId)
   {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     _depositId = uniStaker.stake(_amount, _delegatee, _beneficiary);
@@ -474,6 +478,32 @@ contract Stake is UniStakerTest {
       _delegatee = address(uint160(uint256(keccak256(abi.encode(_delegatee)))));
     }
   }
+
+  function testFuzz_RevertIf_DelegateeIsTheZeroAddress(address _depositor, uint256 _amount) public {
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+    govToken.approve(address(uniStaker), _amount);
+
+    vm.prank(_depositor);
+    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    uniStaker.stake(_amount, address(0));
+  }
+
+  function testFuzz_RevertIf_BeneficiaryIsTheZeroAddress(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    vm.assume(_delegatee != address(0));
+
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+    govToken.approve(address(uniStaker), _amount);
+
+    vm.prank(_depositor);
+    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    uniStaker.stake(_amount, _delegatee, address(0));
+  }
 }
 
 contract StakeMore is UniStakerTest {
@@ -721,7 +751,7 @@ contract AlterDelegatee is UniStakerTest {
     UniStaker.DepositIdentifier _depositId,
     address _newDelegatee
   ) public {
-    vm.assume(_depositor != address(0));
+    vm.assume(_depositor != address(0) && _newDelegatee != address(0));
 
     // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
     // alter one should revert. We rely on the default owner of any uninitialized deposit being
@@ -733,6 +763,19 @@ contract AlterDelegatee is UniStakerTest {
       )
     );
     uniStaker.alterDelegatee(_depositId, _newDelegatee);
+  }
+
+  function testFuzz_RevertIf_DelegateeIsTheZeroAddress(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
+
+    vm.prank(_depositor);
+    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    uniStaker.alterDelegatee(_depositId, address(0));
   }
 }
 
@@ -812,7 +855,7 @@ contract AlterBeneficiary is UniStakerTest {
     UniStaker.DepositIdentifier _depositId,
     address _newBeneficiary
   ) public {
-    vm.assume(_depositor != address(0));
+    vm.assume(_depositor != address(0) && _newBeneficiary != address(0));
 
     // Since no deposits have been made yet, all DepositIdentifiers are invalid, and any call to
     // alter one should revert. We rely on the default owner of any uninitialized deposit being
@@ -824,6 +867,19 @@ contract AlterBeneficiary is UniStakerTest {
       )
     );
     uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
+  }
+
+  function testFuzz_RevertIf_BeneficiaryIsTheZeroAddress(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
+
+    vm.prank(_depositor);
+    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    uniStaker.alterBeneficiary(_depositId, address(0));
   }
 }
 
