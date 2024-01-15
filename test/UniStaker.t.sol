@@ -1750,3 +1750,53 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
   }
 }
+
+contract ClaimReward is UniStakerRewardsTest {
+  function testFuzz_SendsRewardsEarnedToTheUser(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    uint256 _earned = uniStaker.earned(_depositor);
+
+    vm.prank(_depositor);
+    uniStaker.claimReward();
+
+    assertEq(rewardToken.balanceOf(_depositor), _earned);
+  }
+
+  function testFuzz_ResetsTheRewardsEarnedByTheUser(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    vm.prank(_depositor);
+    uniStaker.claimReward();
+
+    assertEq(uniStaker.earned(_depositor), 0);
+  }
+}
