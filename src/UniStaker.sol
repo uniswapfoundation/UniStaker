@@ -13,6 +13,7 @@ contract UniStaker is ReentrancyGuard {
   error UniStaker__Unauthorized(bytes32 reason, address caller);
   error UniStaker__InvalidRewardRate();
   error UniStaker__InsufficientRewardBalance();
+  error UniStaker__InvalidAddress();
 
   struct Deposit {
     uint256 balance;
@@ -102,6 +103,7 @@ contract UniStaker is ReentrancyGuard {
   }
 
   function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) public nonReentrant {
+    _revertIfAddressZero(_newDelegatee);
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
@@ -115,6 +117,7 @@ contract UniStaker is ReentrancyGuard {
     public
     nonReentrant
   {
+    _revertIfAddressZero(_newBeneficiary);
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
@@ -188,6 +191,9 @@ contract UniStaker is ReentrancyGuard {
     internal
     returns (DepositIdentifier _depositId)
   {
+    _revertIfAddressZero(_delegatee);
+    _revertIfAddressZero(_beneficiary);
+
     _updateReward(_beneficiary);
 
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
@@ -219,5 +225,9 @@ contract UniStaker is ReentrancyGuard {
 
   function _revertIfNotDepositOwner(Deposit storage deposit) internal view {
     if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
+  }
+
+  function _revertIfAddressZero(address _account) internal pure {
+    if (_account == address(0)) revert UniStaker__InvalidAddress();
   }
 }
