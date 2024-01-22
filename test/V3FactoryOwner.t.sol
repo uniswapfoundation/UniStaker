@@ -147,7 +147,7 @@ contract SetAdmin is V3FactoryOwnerTest {
 }
 
 contract TransferFactoryOwnership is V3FactoryOwnerTest {
-  function testFuzz_CurriesNewOwnerToSetOwnerMethodOnFactory(address _newOwner) public {
+  function testFuzz_ForwardsNewOwnerToSetOwnerMethodOnFactory(address _newOwner) public {
     _deployFactoryOwnerWithPayoutAmount(0);
 
     vm.prank(admin);
@@ -167,7 +167,7 @@ contract TransferFactoryOwnership is V3FactoryOwnerTest {
 }
 
 contract EnableFeeAmount is V3FactoryOwnerTest {
-  function testFuzz_CurriesParametersToTheEnableFeeAmountMethodOnTheFactory(
+  function testFuzz_ForwardsParametersToTheEnableFeeAmountMethodOnTheFactory(
     uint24 _fee,
     int24 _tickSpacing
   ) public {
@@ -195,7 +195,7 @@ contract EnableFeeAmount is V3FactoryOwnerTest {
 }
 
 contract SetFeeProtocol is V3FactoryOwnerTest {
-  function testFuzz_CurriesParametersToSetFeeProtocolToAPool(
+  function testFuzz_ForwardsParametersToSetFeeProtocolToAPool(
     uint8 _feeProtocol0,
     uint8 _feeProtocol1
   ) public {
