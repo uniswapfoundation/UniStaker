@@ -2,12 +2,13 @@
 pragma solidity 0.8.23;
 
 import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
+import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
 import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin/utils/ReentrancyGuard.sol";
 
-contract UniStaker is ReentrancyGuard {
+contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   type DepositIdentifier is uint256;
 
   error UniStaker__Unauthorized(bytes32 reason, address caller);
