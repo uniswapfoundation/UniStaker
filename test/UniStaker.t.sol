@@ -1208,7 +1208,7 @@ contract UniStakerRewardsTest is UniStakerTest {
     console2.log("reward balance");
     console2.log(rewardToken.balanceOf(address(uniStaker)));
     console2.log("rewardDuration");
-    console2.log(uniStaker.rewardDuration());
+    console2.log(uniStaker.REWARD_DURATION());
     console2.log("finishAt");
     console2.log(uniStaker.finishAt());
     console2.log("updatedAt");
@@ -1241,7 +1241,7 @@ contract UniStakerRewardsTest is UniStakerTest {
   }
 
   function _jumpAheadByPercentOfRewardDuration(uint256 _percent) public {
-    uint256 _seconds = (_percent * uniStaker.rewardDuration()) / 100;
+    uint256 _seconds = (_percent * uniStaker.REWARD_DURATION()) / 100;
     _jumpAhead(_seconds);
   }
 
@@ -1277,7 +1277,7 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     _amount = _boundToRealisticReward(_amount);
     _mintTransferAndNotifyReward(_amount);
 
-    uint256 _expectedRewardRate = _amount / uniStaker.rewardDuration();
+    uint256 _expectedRewardRate = _amount / uniStaker.REWARD_DURATION();
     assertEq(uniStaker.rewardRate(), _expectedRewardRate);
   }
 
@@ -1286,11 +1286,11 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     _amount2 = _boundToRealisticReward(_amount2);
 
     _mintTransferAndNotifyReward(_amount1);
-    uint256 _expectedRewardRate = _amount1 / uniStaker.rewardDuration();
+    uint256 _expectedRewardRate = _amount1 / uniStaker.REWARD_DURATION();
     assertEq(uniStaker.rewardRate(), _expectedRewardRate);
 
     _mintTransferAndNotifyReward(_amount2);
-    _expectedRewardRate = (_amount1 + _amount2) / uniStaker.rewardDuration();
+    _expectedRewardRate = (_amount1 + _amount2) / uniStaker.REWARD_DURATION();
     assertLteWithinOneUnit(uniStaker.rewardRate(), _expectedRewardRate);
   }
 
@@ -1301,7 +1301,7 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     _jumpAhead(_jumpTime);
 
     _mintTransferAndNotifyReward(_amount);
-    uint256 _expectedFinishTimestamp = _futureTimestamp + uniStaker.rewardDuration();
+    uint256 _expectedFinishTimestamp = _futureTimestamp + uniStaker.REWARD_DURATION();
 
     assertEq(uniStaker.updatedAt(), _futureTimestamp);
     assertEq(uniStaker.finishAt(), _expectedFinishTimestamp);
@@ -1359,7 +1359,7 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
 
   function testFuzz_RevertIf_RewardAmountIsTooSmall(uint256 _amount) public {
     // If the amount is less than the rewards duration the reward rate will be truncated to 0
-    _amount = bound(_amount, 0, uniStaker.rewardDuration() - 1);
+    _amount = bound(_amount, 0, uniStaker.REWARD_DURATION() - 1);
     rewardToken.mint(rewardsNotifier, _amount);
 
     vm.startPrank(rewardsNotifier);

@@ -25,6 +25,7 @@ contract UniStaker is ReentrancyGuard {
   IERC20 public immutable REWARDS_TOKEN;
   IERC20Delegates public immutable STAKE_TOKEN;
   address public immutable REWARDS_NOTIFIER;
+  uint256 public constant REWARD_DURATION = 7 days;
   uint256 private constant SCALE_FACTOR = 1e24;
 
   DepositIdentifier private nextDepositId;
@@ -39,7 +40,6 @@ contract UniStaker is ReentrancyGuard {
 
   mapping(address delegatee => DelegationSurrogate surrogate) public surrogates;
 
-  uint256 public rewardDuration = 7 days;
   uint256 public finishAt;
   uint256 public updatedAt;
   uint256 public rewardRate;
@@ -151,18 +151,18 @@ contract UniStaker is ReentrancyGuard {
     if (block.timestamp >= finishAt) {
       // TODO: Can we move the scale factor into the rewardRate? This should reduce rounding errors
       // introduced here when truncating on this division.
-      rewardRate = _amount / rewardDuration;
+      rewardRate = _amount / REWARD_DURATION;
     } else {
       uint256 remainingRewards = rewardRate * (finishAt - block.timestamp);
-      rewardRate = (remainingRewards + _amount) / rewardDuration;
+      rewardRate = (remainingRewards + _amount) / REWARD_DURATION;
     }
 
     if (rewardRate == 0) revert UniStaker__InvalidRewardRate();
-    if ((rewardRate * rewardDuration) > REWARDS_TOKEN.balanceOf(address(this))) {
+    if ((rewardRate * REWARD_DURATION) > REWARDS_TOKEN.balanceOf(address(this))) {
       revert UniStaker__InsufficientRewardBalance();
     }
 
-    finishAt = block.timestamp + rewardDuration;
+    finishAt = block.timestamp + REWARD_DURATION;
     updatedAt = block.timestamp;
   }
 
