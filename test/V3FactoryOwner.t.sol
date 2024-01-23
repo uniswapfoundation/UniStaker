@@ -21,7 +21,7 @@ contract V3FactoryOwnerTest is Test {
   MockUniswapV3Pool pool;
   MockUniswapV3Factory factory;
 
-  event AdminUpdated(address indexed oldAmin, address indexed newAdmin);
+  event AdminSet(address indexed oldAmin, address indexed newAdmin);
   event FeesClaimed(
     address indexed pool,
     address indexed caller,
@@ -121,7 +121,7 @@ contract SetAdmin is V3FactoryOwnerTest {
 
     vm.expectEmit(true, true, true, true);
     vm.prank(admin);
-    emit AdminUpdated(admin, _newAdmin);
+    emit AdminSet(admin, _newAdmin);
     factoryOwner.setAdmin(_newAdmin);
   }
 

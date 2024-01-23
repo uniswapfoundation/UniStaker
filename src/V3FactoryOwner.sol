@@ -16,7 +16,7 @@ contract V3FactoryOwner {
   uint256 public immutable PAYOUT_AMOUNT;
   INotifiableRewardReceiver public immutable REWARD_RECEIVER;
 
-  event AdminUpdated(address indexed oldAmin, address indexed newAdmin);
+  event AdminSet(address indexed oldAmin, address indexed newAdmin);
   event FeesClaimed(
     address indexed pool,
     address indexed caller,
@@ -46,7 +46,7 @@ contract V3FactoryOwner {
   function setAdmin(address _newAdmin) external {
     _revertIfNotAdmin();
     if (_newAdmin == address(0)) revert V3FactoryOwner__InvalidAddress();
-    emit AdminUpdated(admin, _newAdmin);
+    emit AdminSet(admin, _newAdmin);
     admin = _newAdmin;
   }
 
