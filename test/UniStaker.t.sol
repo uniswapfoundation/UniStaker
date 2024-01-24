@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.23;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Vm, Test, console2} from "forge-std/Test.sol";
 import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
+import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
 import {ERC20VotesMock} from "test/mocks/MockERC20Votes.sol";
 import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
 
@@ -11,7 +12,7 @@ contract UniStakerTest is Test {
   ERC20VotesMock govToken;
   address admin;
   address rewardsNotifier;
-  UniStaker uniStaker;
+  UniStakerHarness uniStaker;
 
   event RewardsNotifierSet(address indexed account, bool isEnabled);
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
@@ -32,12 +33,11 @@ contract UniStakerTest is Test {
 
     admin = makeAddr("admin");
 
-    uniStaker = new UniStaker(rewardToken, govToken, admin);
+    uniStaker = new UniStakerHarness(rewardToken, govToken, admin);
+    vm.label(address(uniStaker), "UniStaker");
 
     vm.prank(admin);
     uniStaker.setRewardsNotifier(rewardsNotifier, true);
-
-    vm.label(address(uniStaker), "UniStaker");
   }
 
   function _jumpAhead(uint256 _seconds) public {
@@ -157,6 +157,153 @@ contract Stake is UniStakerTest {
     assertEq(govToken.balanceOf(address(_surrogate)), _amount);
     assertEq(govToken.delegates(address(_surrogate)), _delegatee);
     assertEq(govToken.balanceOf(_depositor), 0);
+  }
+
+  function testFuzz_EmitsAStakingDepositEventWhenStakingWithoutASpecifiedBeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    _amount = bound(_amount, 1, type(uint224).max);
+    _mintGovToken(_depositor, _amount);
+    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+
+    vm.assume(_delegatee != address(0));
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    vm.expectEmit();
+    emit UniStaker.StakeDeposited(
+      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      _amount,
+      _amount
+    );
+
+    uniStaker.stake(_amount, _delegatee);
+    vm.stopPrank();
+  }
+
+  function testFuzz_EmitsABeneficiaryAlteredEventWhenStakingWithoutASpecifiedBeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    _amount = bound(_amount, 1, type(uint224).max);
+    _mintGovToken(_depositor, _amount);
+    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+
+    vm.assume(_delegatee != address(0));
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    vm.expectEmit();
+    emit UniStaker.BeneficiaryAltered(
+      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      address(0),
+      _depositor
+    );
+
+    uniStaker.stake(_amount, _delegatee);
+    vm.stopPrank();
+  }
+
+  function testFuzz_EmitsADelegateeAlteredEventWhenStakingWithoutASpecifiedBeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee
+  ) public {
+    _amount = bound(_amount, 1, type(uint224).max);
+    _mintGovToken(_depositor, _amount);
+    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+
+    vm.assume(_delegatee != address(0));
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    vm.expectEmit();
+    emit UniStaker.DelegateeAltered(
+      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      address(0),
+      _delegatee
+    );
+
+    uniStaker.stake(_amount, _delegatee);
+    vm.stopPrank();
+  }
+
+  function testFuzz_EmitsAStakingDepositEventWhenStakingWithASpecifiedBeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    _amount = bound(_amount, 1, type(uint224).max);
+    _mintGovToken(_depositor, _amount);
+    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    vm.expectEmit();
+    emit UniStaker.StakeDeposited(
+      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      _amount,
+      _amount
+    );
+
+    uniStaker.stake(_amount, _delegatee, _beneficiary);
+    vm.stopPrank();
+  }
+
+  function testFuzz_EmitsABeneficiaryAlteredEventWhenStakingWithASpecifiedBeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    _amount = bound(_amount, 1, type(uint224).max);
+    _mintGovToken(_depositor, _amount);
+    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    vm.expectEmit();
+    emit UniStaker.BeneficiaryAltered(
+      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      address(0),
+      _beneficiary
+    );
+
+    uniStaker.stake(_amount, _delegatee, _beneficiary);
+    vm.stopPrank();
+  }
+
+  function testFuzz_EmitsADelegateeAlteredEventWhenStakingWithASpecifiedBeneficiary(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    _amount = bound(_amount, 1, type(uint224).max);
+    _mintGovToken(_depositor, _amount);
+    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _amount);
+    vm.expectEmit();
+    emit UniStaker.DelegateeAltered(
+      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      address(0),
+      _delegatee
+    );
+
+    uniStaker.stake(_amount, _delegatee, _beneficiary);
+    vm.stopPrank();
   }
 
   function testFuzz_TransfersToAnExistingSurrogateWhenStakedToTheSameDelegatee(
@@ -632,6 +779,36 @@ contract StakeMore is UniStakerTest {
     assertEq(_deposit.balance, _depositAmount + _addAmount);
   }
 
+  function testFuzz_EmitsAnEventWhenStakingMore(
+    address _depositor,
+    uint256 _depositAmount,
+    uint256 _addAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    uint256 _totalAdditionalStake;
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    // Second stake
+    _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    _addAmount = _boundToRealisticStake(_addAmount);
+    _totalAdditionalStake = _addAmount * 2;
+    _mintGovToken(_depositor, _totalAdditionalStake);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _addAmount * 2);
+
+    uniStaker.stakeMore(_depositId, _addAmount);
+
+    vm.expectEmit();
+    emit UniStaker.StakeDeposited(_depositId, _addAmount, _depositAmount + _totalAdditionalStake);
+
+    uniStaker.stakeMore(_depositId, _addAmount);
+    vm.stopPrank();
+  }
+
   function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
     address _depositor,
     address _notDepositor,
@@ -730,6 +907,26 @@ contract AlterDelegatee is UniStakerTest {
     assertEq(_deposit.delegatee, _delegatee);
     assertEq(_beforeSurrogate, _afterSurrogate);
     assertEq(govToken.balanceOf(_afterSurrogate), _depositAmount);
+  }
+
+  function testFuzz_EmitsAnEventWhenADelegateeIsChanged(
+    address _depositor,
+    uint256 _depositAmount,
+    address _firstDelegatee,
+    address _beneficiary,
+    address _newDelegatee
+  ) public {
+    vm.assume(_newDelegatee != address(0) && _newDelegatee != _firstDelegatee);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
+
+    vm.expectEmit();
+    emit UniStaker.DelegateeAltered(_depositId, _firstDelegatee, _newDelegatee);
+
+    vm.prank(_depositor);
+    uniStaker.alterDelegatee(_depositId, _newDelegatee);
   }
 
   function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
@@ -833,6 +1030,26 @@ contract AlterBeneficiary is UniStakerTest {
 
     assertEq(_deposit.beneficiary, _beneficiary);
     assertEq(uniStaker.earningPower(_beneficiary), _depositAmount);
+  }
+
+  function testFuzz_EmitsAnEventWhenBeneficiaryAltered(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _firstBeneficiary,
+    address _newBeneficiary
+  ) public {
+    vm.assume(_newBeneficiary != address(0) && _newBeneficiary != _firstBeneficiary);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
+
+    vm.expectEmit();
+    emit UniStaker.BeneficiaryAltered(_depositId, _firstBeneficiary, _newBeneficiary);
+
+    vm.prank(_depositor);
+    uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
   }
 
   function testFuzz_RevertIf_TheCallerIsNotTheDepositor(
@@ -1128,6 +1345,23 @@ contract Withdraw is UniStakerTest {
 
     assertEq(uniStaker.earningPower(_beneficiary1), _depositAmount1 - _withdrawalAmount1);
     assertEq(uniStaker.earningPower(_beneficiary2), _depositAmount2 - _withdrawalAmount2);
+  }
+
+  function testFuzz_EmitsAnEventWhenThereIsAWithdrawl(
+    address _depositor,
+    uint256 _depositAmount,
+    address _delegatee,
+    uint256 _withdrawalAmount
+  ) public {
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
+    _withdrawalAmount = bound(_withdrawalAmount, 0, _depositAmount);
+
+    vm.expectEmit();
+    emit UniStaker.StakeWithdrawn(_depositId, _withdrawalAmount, _depositAmount - _withdrawalAmount);
+
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _withdrawalAmount);
   }
 
   function testFuzz_RevertIf_TheWithdrawerIsNotTheDepositor(
@@ -1473,7 +1707,21 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     assertLe(uniStaker.rewardRate(), _expectedRewardRate);
   }
 
-  function testFuzz_RevertIf_CallerIsNotARewardsNotifier(uint256 _amount, address _notNotifier)
+  function testFuzz_EmitsAnEventWhenRewardsAreNotified(uint256 _amount) public {
+    _amount = _boundToRealisticReward(_amount);
+    rewardToken.mint(rewardsNotifier, _amount);
+
+    vm.startPrank(rewardsNotifier);
+    rewardToken.transfer(address(uniStaker), _amount);
+
+    vm.expectEmit();
+    emit UniStaker.RewardNotified(_amount);
+
+    uniStaker.notifyRewardsAmount(_amount);
+    vm.stopPrank();
+  }
+
+  function testFuzz_RevertIf_CallerIsNotTheRewardsNotifier(uint256 _amount, address _notNotifier)
     public
   {
     vm.assume(!uniStaker.isRewardsNotifier(_notNotifier) && _notNotifier != address(0));
@@ -1936,6 +2184,47 @@ contract ClaimReward is UniStakerRewardsTest {
     uniStaker.claimReward();
 
     assertEq(uniStaker.earned(_depositor), 0);
+  }
+
+  function testFuzz_EmitsAnEventWhenRewardsAreClaimed(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 1, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    uint256 _earned = uniStaker.earned(_depositor);
+
+    vm.expectEmit();
+    emit UniStaker.RewardClaimed(_depositor, _earned);
+
+    vm.prank(_depositor);
+    uniStaker.claimReward();
+  }
+}
+
+contract _FetchOrDeploySurrogate is UniStakerRewardsTest {
+  function testFuzz_EmitsAnEventWhenASurrogateIsDeployed(address _delegatee) public {
+    vm.assume(_delegatee != address(0));
+    vm.recordLogs();
+    uniStaker.exposed_fetchOrDeploySurrogate(_delegatee);
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+    DelegationSurrogate _surrogate = uniStaker.surrogates(_delegatee);
+
+    assertEq(logs[1].topics[0], keccak256("SurrogateDeployed(address,address)"));
+    assertEq(logs[1].topics[1], bytes32(uint256(uint160(_delegatee))));
+    assertEq(logs[1].topics[2], bytes32(uint256(uint160(address(_surrogate)))));
   }
 }
 
