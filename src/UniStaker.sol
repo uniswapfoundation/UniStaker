@@ -44,6 +44,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// @notice Thrown if a caller attempts to specify address zero for certain designated addresses.
   error UniStaker__InvalidAddress();
 
+  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
+  event RewardsNotifierSet(address indexed account, bool isEnabled);
+
   /// @notice Metadata associated with a discrete staking deposit.
   /// @param balance The deposit's staked balance.
   /// @param owner The owner of this deposit.
@@ -62,8 +65,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// @notice Delegable governance token which users stake to earn rewards.
   IERC20Delegates public immutable STAKE_TOKEN;
 
-  address public immutable REWARDS_NOTIFIER;
-
   /// @notice Length of time over which rewards sent to this contract are distributed to stakers.
   uint256 public constant REWARD_DURATION = 7 days;
 
@@ -73,6 +74,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
 
   /// @dev Unique identifier that will be used for the next deposit.
   DepositIdentifier private nextDepositId;
+
+  /// @notice Admin has permission to perform restricted operations.
+  address public admin;
 
   /// @notice Global amount currently staked across all user deposits.
   uint256 public totalSupply;
@@ -115,14 +119,28 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// rewards earned after this snapshot was taken. This value is reset to zero when a beneficiary
   /// account claims their earned rewards.
   mapping(address account => uint256 amount) public rewards;
+  mapping(address rewardsNotifier => bool) public isRewardsNotifier;
 
   /// @param _rewardsToken ERC20 token in which rewards will be denominated.
   /// @param _stakeToken Delegable governance token which users will stake to earn rewards.
-  /// @param _rewardsNotifier DEPRECATED
-  constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken, address _rewardsNotifier) {
+  /// @param _admin Address which will have permission to perform restricted operations.
+  constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken, address _admin) {
     REWARDS_TOKEN = _rewardsToken;
     STAKE_TOKEN = _stakeToken;
-    REWARDS_NOTIFIER = _rewardsNotifier;
+    _setAdmin(_admin);
+  }
+
+  /// @notice Set the admin address.
+  /// @param _newAdmin Address of the new admin.
+  function setAdmin(address _newAdmin) external {
+    _revertIfNotAdmin();
+    _setAdmin(_newAdmin);
+  }
+
+  function setRewardsNotifier(address _rewardsNotifier, bool _isEnabled) external {
+    _revertIfNotAdmin();
+    isRewardsNotifier[_rewardsNotifier] = _isEnabled;
+    emit RewardsNotifierSet(_rewardsNotifier, _isEnabled);
   }
 
   /// @notice Timestamp representing the last time at which rewards have been distributed, which is
@@ -279,7 +297,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// staking contract before the rewards notifier calls this method.
   /// @param _amount Quantity of reward tokens the staking contract is being notified of.
   function notifyRewardsAmount(uint256 _amount) external {
-    if (msg.sender != REWARDS_NOTIFIER) revert UniStaker__Unauthorized("not notifier", msg.sender);
+    if (!isRewardsNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
     // TODO: It looks like the only thing we actually need to do here is update the
     // rewardPerTokenStored value. Can we save gas by doing only that?
     _updateReward(address(0));
@@ -375,6 +393,16 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
 
     rewards[_beneficiary] = earned(_beneficiary);
     userRewardPerTokenPaid[_beneficiary] = rewardPerTokenStored;
+  }
+
+  function _setAdmin(address _newAdmin) internal {
+    _revertIfAddressZero(_newAdmin);
+    emit AdminSet(admin, _newAdmin);
+    admin = _newAdmin;
+  }
+
+  function _revertIfNotAdmin() internal view {
+    if (msg.sender != admin) revert UniStaker__Unauthorized("not admin", msg.sender);
   }
 
   /// @notice Internal helper method which reverts UniStaker__Unauthorized if the message sender is
