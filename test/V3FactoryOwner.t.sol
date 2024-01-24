@@ -119,7 +119,7 @@ contract SetAdmin is V3FactoryOwnerTest {
     vm.assume(_newAdmin != address(0));
     _deployFactoryOwnerWithPayoutAmount(0);
 
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     vm.prank(admin);
     emit AdminSet(admin, _newAdmin);
     factoryOwner.setAdmin(_newAdmin);
@@ -299,7 +299,7 @@ contract ClaimFees is V3FactoryOwnerTest {
 
     vm.startPrank(_caller);
     payoutToken.approve(address(factoryOwner), _payoutAmount);
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit();
     emit FeesClaimed(address(pool), _caller, _recipient, _amount0, _amount1);
     factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
     vm.stopPrank();

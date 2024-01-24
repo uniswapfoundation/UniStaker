@@ -29,6 +29,22 @@ import {Multicall} from "openzeppelin/utils/Multicall.sol";
 contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   type DepositIdentifier is uint256;
 
+  event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 totalDeposited);
+  event StakeWithdrawn(
+    DepositIdentifier indexed depositId, uint256 amount, uint256 remainingAmount
+  );
+  event DelegateeAltered(
+    DepositIdentifier indexed depositId, address oldDelegatee, address newDelegatee
+  );
+  event BeneficiaryAltered(
+    DepositIdentifier indexed depositId,
+    address indexed oldBeneficiary,
+    address indexed newBeneficiary
+  );
+  event RewardClaimed(address indexed beneficiary, uint256 amount);
+  event RewardNotified(uint256 amount);
+  event SurrogateDeployed(address indexed delegatee, address indexed surrogate);
+
   /// @notice Thrown when an account attempts a call for which it lacks appropriate permission.
   /// @param reason Human readable code explaining why the call is unauthorized.
   /// @param caller The address that attempted the unauthorized call.
@@ -232,6 +248,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     totalDeposits[msg.sender] += _amount;
     earningPower[deposit.beneficiary] += _amount;
     deposit.balance += _amount;
+    emit StakeDeposited(_depositId, _amount, deposit.balance);
   }
 
   /// @notice For an existing deposit, change the address to which governance voting power is
@@ -249,6 +266,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     _revertIfNotDepositOwner(deposit);
 
     DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
+    emit DelegateeAltered(_depositId, deposit.delegatee, _newDelegatee);
     deposit.delegatee = _newDelegatee;
     DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
     _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
@@ -272,6 +290,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     earningPower[deposit.beneficiary] -= deposit.balance;
 
     _updateReward(_newBeneficiary);
+    emit BeneficiaryAltered(_depositId, deposit.beneficiary, _newBeneficiary);
     deposit.beneficiary = _newBeneficiary;
     earningPower[_newBeneficiary] += deposit.balance;
   }
@@ -292,6 +311,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     totalDeposits[msg.sender] -= _amount;
     earningPower[deposit.beneficiary] -= _amount;
     _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
+    emit StakeWithdrawn(_depositId, _amount, deposit.balance);
   }
 
   /// @notice Claim reward tokens the message sender has earned as a stake beneficiary. Tokens are
@@ -302,6 +322,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     uint256 _rewards = rewards[msg.sender];
     if (_rewards == 0) return;
     rewards[msg.sender] = 0;
+    emit RewardClaimed(msg.sender, _rewards);
 
     SafeERC20.safeTransfer(REWARDS_TOKEN, msg.sender, _rewards);
   }
@@ -332,6 +353,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
     finishAt = block.timestamp + REWARD_DURATION;
     updatedAt = block.timestamp;
+    emit RewardNotified(_amount);
   }
 
   /// @notice Internal method which finds the existing surrogate contract—or deploys a new one if
@@ -347,6 +369,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     if (address(_surrogate) == address(0)) {
       _surrogate = new DelegationSurrogate(STAKE_TOKEN, _delegatee);
       surrogates[_delegatee] = _surrogate;
+      emit SurrogateDeployed(_delegatee, address(_surrogate));
     }
   }
 
@@ -391,6 +414,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
       delegatee: _delegatee,
       beneficiary: _beneficiary
     });
+    emit StakeDeposited(_depositId, _amount, _amount);
+    emit BeneficiaryAltered(_depositId, address(0), _beneficiary);
+    emit DelegateeAltered(_depositId, address(0), _delegatee);
   }
 
   // TODO: rename snapshotReward?
