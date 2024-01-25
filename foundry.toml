@@ -41,3 +41,12 @@
   # with assume statements because we don't have the surrogate address until it's deployed later in
   # the test.
   include_storage = false
+
+[invariant]
+  call_override = false
+  depth = 50
+  dictionary_weight = 80
+  fail_on_revert = false
+  include_push_bytes = true
+  include_storage = true
+  runs = 100
