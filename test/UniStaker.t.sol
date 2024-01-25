@@ -1759,6 +1759,8 @@ contract ClaimReward is UniStakerRewardsTest {
     uint256 _rewardAmount,
     uint256 _durationPercent
   ) public {
+    vm.assume(_depositor != address(uniStaker));
+
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
