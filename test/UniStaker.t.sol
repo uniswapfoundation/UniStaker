@@ -1938,3 +1938,34 @@ contract ClaimReward is UniStakerRewardsTest {
     assertEq(uniStaker.earned(_depositor), 0);
   }
 }
+
+contract Multicall is UniStakerRewardsTest {
+  function testFuzz_CanCallMultipleMethodsInASingleTransaction(
+    address _depositor,
+    address _delegatee1,
+    address _delegatee2,
+    uint256 _stakeAmount1,
+    uint256 _stakeAmount2
+  ) public {
+    _stakeAmount1 = _boundToRealisticStake(_stakeAmount1);
+    _stakeAmount2 = _boundToRealisticStake(_stakeAmount2);
+    vm.assume(_delegatee1 != address(0) && _delegatee2 != address(0));
+    _mintGovToken(_depositor, _stakeAmount1 + _stakeAmount2);
+
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _stakeAmount1 + _stakeAmount2);
+    abi.encodeWithSelector(bytes4(keccak256("stake(uint,address)")), _stakeAmount1, _delegatee1);
+    abi.encodeWithSelector(bytes4(keccak256("stake(uint,address)")), _stakeAmount2, _delegatee2);
+
+    bytes[] memory _calls = new bytes[](2);
+    _calls[0] = abi.encodeWithSelector(
+      bytes4(keccak256("stake(uint256,address)")), _stakeAmount1, _delegatee1
+    );
+    _calls[1] = abi.encodeWithSelector(
+      bytes4(keccak256("stake(uint256,address)")), _stakeAmount2, _delegatee2
+    );
+    vm.prank(_depositor);
+    uniStaker.multicall(_calls);
+    assertEq(uniStaker.totalDeposits(_depositor), _stakeAmount1 + _stakeAmount2);
+  }
+}

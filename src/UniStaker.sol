@@ -7,6 +7,7 @@ import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin/utils/ReentrancyGuard.sol";
+import {Multicall} from "openzeppelin/utils/Multicall.sol";
 
 /// @title UniStaker
 /// @author ScopeLift
@@ -25,7 +26,7 @@ import {ReentrancyGuard} from "openzeppelin/utils/ReentrancyGuard.sol";
 /// received, the reward duration restarts, and the rate at which rewards are streamed is updated
 /// to include the newly received rewards along with any remaining rewards that have finished
 /// streaming since the last time a reward was received.
-contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
+contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   type DepositIdentifier is uint256;
 
   /// @notice Thrown when an account attempts a call for which it lacks appropriate permission.
@@ -189,7 +190,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// @dev The delegatee may not be the zero address. The deposit will be owned by the message
   /// sender, and the beneficiary will also be the message sender.
   function stake(uint256 _amount, address _delegatee)
-    external
+    public
     nonReentrant
     returns (DepositIdentifier _depositId)
   {
