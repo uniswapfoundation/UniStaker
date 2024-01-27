@@ -1775,6 +1775,87 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
   }
 }
 
+contract LastTimeRewardApplicable is UniStakerRewardsTest {
+  function test_ReturnsZeroBeforeARewardNotificationHasOccurred() public {
+    assertEq(uniStaker.lastTimeRewardApplicable(), 0);
+  }
+
+  function testFuzz_ReturnsTheBlockTimestampAfterARewardNotificationButBeforeTheRewardDurationElapses(
+    uint256 _amount,
+    uint256 _durationPercent
+  ) public {
+    _amount = _boundToRealisticReward(_amount);
+    _mintTransferAndNotifyReward(_amount);
+
+    _durationPercent = bound(_durationPercent, 0, 100);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    assertEq(uniStaker.lastTimeRewardApplicable(), block.timestamp);
+  }
+
+  function testFuzz_ReturnsTheEndOfTheRewardDurationIfItHasFullyElapsed(
+    uint256 _amount,
+    uint256 _durationPercent
+  ) public {
+    _amount = _boundToRealisticReward(_amount);
+    _mintTransferAndNotifyReward(_amount);
+
+    uint256 _durationEnd = block.timestamp + uniStaker.REWARD_DURATION();
+
+    _durationPercent = bound(_durationPercent, 101, 1000);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    assertEq(uniStaker.lastTimeRewardApplicable(), _durationEnd);
+  }
+
+  function testFuzz_ReturnsTheBlockTimestampWhileWithinTheDurationOfASecondReward(
+    uint256 _amount,
+    uint256 _durationPercent1,
+    uint256 _durationPercent2
+  ) public {
+    // Notification of first reward
+    _amount = _boundToRealisticReward(_amount);
+    _mintTransferAndNotifyReward(_amount);
+
+    // Some time elapses, which could be more or less than the duration
+    _durationPercent1 = bound(_durationPercent1, 0, 200);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent1);
+
+    // Notification of the second reward
+    _mintTransferAndNotifyReward(_amount);
+
+    // Some more time elapses, this time no more than the duration
+    _durationPercent2 = bound(_durationPercent2, 0, 100);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent2);
+
+    assertEq(uniStaker.lastTimeRewardApplicable(), block.timestamp);
+  }
+
+  function testFuzz_ReturnsTheEndOfTheSecondRewardDurationAfterTwoRewards(
+    uint256 _amount,
+    uint256 _durationPercent1,
+    uint256 _durationPercent2
+  ) public {
+    // Notification of first reward
+    _amount = _boundToRealisticReward(_amount);
+    _mintTransferAndNotifyReward(_amount);
+
+    // Some time elapses, which could be more or less than the duration
+    _durationPercent1 = bound(_durationPercent1, 0, 200);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent1);
+
+    // Notification of the second reward
+    _mintTransferAndNotifyReward(_amount);
+    uint256 _durationEnd = block.timestamp + uniStaker.REWARD_DURATION();
+
+    // Some more time elapses, placing us beyond the duration of the second reward
+    _durationPercent2 = bound(_durationPercent2, 101, 1000);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent2);
+
+    assertEq(uniStaker.lastTimeRewardApplicable(), _durationEnd);
+  }
+}
+
 contract Earned is UniStakerRewardsTest {
   function testFuzz_CalculatesCorrectEarningsForASingleDepositorThatStakesForFullDuration(
     address _depositor,
