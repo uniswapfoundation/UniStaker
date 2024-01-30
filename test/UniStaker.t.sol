@@ -1940,7 +1940,69 @@ contract ClaimReward is UniStakerRewardsTest {
 }
 
 contract Multicall is UniStakerRewardsTest {
-  function testFuzz_CanCallMultipleMethodsInASingleTransaction(
+  function _encodeStake(address _delegatee, uint256 _stakeAmount)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return
+      abi.encodeWithSelector(bytes4(keccak256("stake(uint256,address)")), _stakeAmount, _delegatee);
+  }
+
+  function _encodeStake(address _delegatee, uint256 _stakeAmount, address _beneficiary)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("stake(uint256,address,address)")), _stakeAmount, _delegatee, _beneficiary
+    );
+  }
+
+  function _encodeStakeMore(UniStaker.DepositIdentifier _depositId, uint256 _stakeAmount)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("stakeMore(uint256,uint256)")), _depositId, _stakeAmount
+    );
+  }
+
+  function _encodeWithdraw(UniStaker.DepositIdentifier _depositId, uint256 _amount)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return
+      abi.encodeWithSelector(bytes4(keccak256("withdraw(uint256,uint256)")), _depositId, _amount);
+  }
+
+  function _encodeAlterBeneficiary(UniStaker.DepositIdentifier _depositId, address _beneficiary)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("alterBeneficiary(uint256,address)")), _depositId, _beneficiary
+    );
+  }
+
+  function _encodeAlterDelegatee(UniStaker.DepositIdentifier _depositId, address _delegatee)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("alterDelegatee(uint256,address)")), _depositId, _delegatee
+    );
+  }
+
+  function _encodeClaimReward() internal pure returns (bytes memory) {
+    return abi.encodeWithSelector(bytes4(keccak256("claimReward()")));
+  }
+
+  function testFuzz_CanUseMulticallToStakeMultipleTimes(
     address _depositor,
     address _delegatee1,
     address _delegatee2,
@@ -1954,16 +2016,10 @@ contract Multicall is UniStakerRewardsTest {
 
     vm.prank(_depositor);
     govToken.approve(address(uniStaker), _stakeAmount1 + _stakeAmount2);
-    abi.encodeWithSelector(bytes4(keccak256("stake(uint,address)")), _stakeAmount1, _delegatee1);
-    abi.encodeWithSelector(bytes4(keccak256("stake(uint,address)")), _stakeAmount2, _delegatee2);
 
     bytes[] memory _calls = new bytes[](2);
-    _calls[0] = abi.encodeWithSelector(
-      bytes4(keccak256("stake(uint256,address)")), _stakeAmount1, _delegatee1
-    );
-    _calls[1] = abi.encodeWithSelector(
-      bytes4(keccak256("stake(uint256,address)")), _stakeAmount2, _delegatee2
-    );
+    _calls[0] = _encodeStake(_delegatee1, _stakeAmount1);
+    _calls[1] = _encodeStake(_delegatee2, _stakeAmount2);
     vm.prank(_depositor);
     uniStaker.multicall(_calls);
     assertEq(uniStaker.totalDeposits(_depositor), _stakeAmount1 + _stakeAmount2);
