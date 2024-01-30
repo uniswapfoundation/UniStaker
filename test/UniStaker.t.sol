@@ -1897,6 +1897,59 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _percentOf(_rewardAmount, 34));
   }
 
+  function testFuzz_CalculatesCorrectEarningsForASingleUserStakeForPartialDurationWithABeneficiary(
+    address _depositor,
+    address _delegatee,
+	address _beneficiary,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    vm.assume(
+      _beneficiary != address(0)  
+	);
+
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // One third of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    // The user should have earned one third of the rewards
+    assertLteWithinOnePercent(
+      uniStaker.earned(_beneficiary), _percentOf(_rewardAmount, _durationPercent)
+    );
+  }
+
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDurationWithABenificiary(
+    address _depositor,
+    address _delegatee,
+	address _beneficiary,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount
+  ) public {
+    vm.assume(
+      _beneficiary != address(0)  
+	);
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // Two thirds of the duration time passes
+    _jumpAheadByPercentOfRewardDuration(66);
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary);
+    // The rest of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(34);
+
+    // The user should have earned 1/3rd of the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_beneficiary), _percentOf(_rewardAmount, 34));
+  }
+
   function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithNoNewRewards(
     address _depositor,
     address _delegatee,
