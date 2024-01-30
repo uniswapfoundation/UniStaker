@@ -1897,7 +1897,74 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _percentOf(_rewardAmount, 34));
   }
 
+  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithNoNewRewards(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint16 _noRewardsSkip
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+
+    // The full duration passes
+    _jumpAheadByPercentOfRewardDuration(100);
+    _jumpAheadByPercentOfRewardDuration(_noRewardsSkip);
+
+    // Send new rewards
+    _mintTransferAndNotifyReward(_rewardAmount);
+
+    // The user should have earned all the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
+  }
+
+  function testFuzz_CalculatesCorrectEarningsWhenASingleDepositorUpdatesTheirBeneficiaryWithNoNewRewards(
+    address _depositor,
+    address _delegatee,
+    address _beneficiary1,
+    address _beneficiary2,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _percentDuration,
+    uint16 _noRewardsSkip
+  ) public {
+    vm.assume(
+      _beneficiary1 != _beneficiary2 && _beneficiary1 != address(0) && _beneficiary2 != address(0)
+    );
+
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _percentDuration = bound(_percentDuration, 0, 100);
+
+    // A user deposits staking tokens w/ a beneficiary
+    (, UniStaker.DepositIdentifier _depositId) =
+      _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary1);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // Part of the rewards duration passes
+    _jumpAheadByPercentOfRewardDuration(_percentDuration);
+    // The depositor alters their beneficiary
+    vm.prank(_depositor);
+    uniStaker.alterBeneficiary(_depositId, _beneficiary2);
+    // The rest of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(100 - _percentDuration);
+
+    // Skip ahead with no rewards
+    _jumpAheadByPercentOfRewardDuration(_noRewardsSkip);
+    // Send new rewards
+    _mintTransferAndNotifyReward(_rewardAmount);
+
+    // The beneficiary should have earned all the rewards
+    assertLteWithinOnePercent(
+      uniStaker.earned(_beneficiary1), _percentOf(_rewardAmount, _percentDuration)
+    );
+    assertLteWithinOnePercent(
+      uniStaker.earned(_beneficiary2), _percentOf(_rewardAmount, 100 - _percentDuration)
+    );
+  }
 
   function testFuzz_CalculatesCorrectEarningsForTwoUsersThatDepositEqualStakeForFullDuration(
     address _depositor1,
