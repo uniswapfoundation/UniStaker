@@ -1876,6 +1876,29 @@ contract Earned is UniStakerRewardsTest {
     );
   }
 
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDuration(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // Two thirds of the duration time passes
+    _jumpAheadByPercentOfRewardDuration(66);
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The rest of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(34);
+
+    // The user should have earned 1/3rd of the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _percentOf(_rewardAmount, 34));
+  }
+
+
+
   function testFuzz_CalculatesCorrectEarningsForTwoUsersThatDepositEqualStakeForFullDuration(
     address _depositor1,
     address _depositor2,
@@ -1944,27 +1967,6 @@ contract Earned is UniStakerRewardsTest {
     // Each user should have earned half of the rewards
     assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
     assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
-  }
-
-  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDuration(
-    address _depositor,
-    address _delegatee,
-    uint256 _stakeAmount,
-    uint256 _rewardAmount
-  ) public {
-    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
-
-    // The contract is notified of a reward
-    _mintTransferAndNotifyReward(_rewardAmount);
-    // Two thirds of the duration time passes
-    _jumpAheadByPercentOfRewardDuration(66);
-    // A user deposits staking tokens
-    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
-    // The rest of the duration elapses
-    _jumpAheadByPercentOfRewardDuration(34);
-
-    // The user should have earned 1/3rd of the rewards
-    assertLteWithinOnePercent(uniStaker.earned(_depositor), _percentOf(_rewardAmount, 34));
   }
 
   function testFuzz_CalculatesCorrectEarningsWhenAUserStakesThroughTheDurationAndAnotherStakesPartially(
