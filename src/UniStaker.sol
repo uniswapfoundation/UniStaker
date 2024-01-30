@@ -137,6 +137,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
     _setAdmin(_newAdmin);
   }
 
+  /// @notice Enables or disables a rewards notifier address.
+  /// @param _rewardsNotifier Address of the rewards notifier.
+  /// @param _isEnabled `true` to enable the `_rewardsNotifier`, or `false` to disable.
   function setRewardsNotifier(address _rewardsNotifier, bool _isEnabled) external {
     _revertIfNotAdmin();
     isRewardsNotifier[_rewardsNotifier] = _isEnabled;
@@ -395,12 +398,16 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
     userRewardPerTokenPaid[_beneficiary] = rewardPerTokenStored;
   }
 
+  /// @notice Internal helper method which sets the admin address.
+  /// @param _newAdmin Address of the new admin.
   function _setAdmin(address _newAdmin) internal {
     _revertIfAddressZero(_newAdmin);
     emit AdminSet(admin, _newAdmin);
     admin = _newAdmin;
   }
 
+  /// @notice Internal helper method which reverts UniStaker__Unauthorized if the message sender is
+  /// not the admin.
   function _revertIfNotAdmin() internal view {
     if (msg.sender != admin) revert UniStaker__Unauthorized("not admin", msg.sender);
   }
