@@ -44,7 +44,10 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// @notice Thrown if a caller attempts to specify address zero for certain designated addresses.
   error UniStaker__InvalidAddress();
 
+  /// @notice Emitted when the admin address is set.
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
+
+  /// @notice Emitted when a rewards notifier address is enabled or disabled.
   event RewardsNotifierSet(address indexed account, bool isEnabled);
 
   /// @notice Metadata associated with a discrete staking deposit.
@@ -75,7 +78,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// @dev Unique identifier that will be used for the next deposit.
   DepositIdentifier private nextDepositId;
 
-  /// @notice Admin has permission to perform restricted operations.
+  /// @notice Permissioned actor that can enable/disable `rewardsNotifier` addresses.
   address public admin;
 
   /// @notice Global amount currently staked across all user deposits.
@@ -119,11 +122,13 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard {
   /// rewards earned after this snapshot was taken. This value is reset to zero when a beneficiary
   /// account claims their earned rewards.
   mapping(address account => uint256 amount) public rewards;
+
+  /// @notice Maps addresses to whether they are authorized to call `notifyRewardsAmount`.
   mapping(address rewardsNotifier => bool) public isRewardsNotifier;
 
   /// @param _rewardsToken ERC20 token in which rewards will be denominated.
   /// @param _stakeToken Delegable governance token which users will stake to earn rewards.
-  /// @param _admin Address which will have permission to perform restricted operations.
+  /// @param _admin Address which will have permission to manage rewardsNotifiers.
   constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken, address _admin) {
     REWARDS_TOKEN = _rewardsToken;
     STAKE_TOKEN = _stakeToken;
