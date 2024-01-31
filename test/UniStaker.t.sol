@@ -1998,10 +1998,6 @@ contract Multicall is UniStakerRewardsTest {
     );
   }
 
-  function _encodeClaimReward() internal pure returns (bytes memory) {
-    return abi.encodeWithSelector(bytes4(keccak256("claimReward()")));
-  }
-
   function testFuzz_CanUseMulticallToStakeMultipleTimes(
     address _depositor,
     address _delegatee1,
@@ -2023,5 +2019,50 @@ contract Multicall is UniStakerRewardsTest {
     vm.prank(_depositor);
     uniStaker.multicall(_calls);
     assertEq(uniStaker.totalDeposits(_depositor), _stakeAmount1 + _stakeAmount2);
+  }
+
+  function testFuzz_CanUseMulticallToStakeAndAlterBeneficiaryAndDelegatee(
+    address _depositor,
+    address _delegatee0,
+    address _delegatee1,
+    address _beneficiary0,
+    address _beneficiary1,
+    uint256 _stakeAmount0,
+    uint256 _stakeAmount1,
+    uint256 _timeElapsed
+  ) public {
+    _stakeAmount0 = _boundToRealisticStake(_stakeAmount0);
+    _stakeAmount1 = _boundToRealisticStake(_stakeAmount1);
+
+    vm.assume(
+      _depositor != address(0) && _delegatee0 != address(0) && _delegatee1 != address(0)
+        && _beneficiary0 != address(0) && _beneficiary1 != address(0)
+    );
+    _mintGovToken(_depositor, _stakeAmount0 + _stakeAmount1);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _stakeAmount0 + _stakeAmount1);
+
+    // first, do initial stake without multicall
+    UniStaker.DepositIdentifier _depositId =
+      uniStaker.stake(_stakeAmount0, _delegatee0, _beneficiary0);
+
+    // some time goes by...
+    vm.warp(_timeElapsed);
+
+    // now I want to stake more, and also change my delegatee and beneficiary
+    bytes[] memory _calls = new bytes[](3);
+    _calls[0] = _encodeStakeMore(_depositId, _stakeAmount1);
+    _calls[1] = _encodeAlterBeneficiary(_depositId, _beneficiary1);
+    _calls[2] = _encodeAlterDelegatee(_depositId, _delegatee1);
+    uniStaker.multicall(_calls);
+    vm.stopPrank();
+
+    (uint256 _amountResult,, address _delegateeResult, address _beneficiaryResult) =
+      uniStaker.deposits(_depositId);
+    assertEq(uniStaker.totalDeposits(_depositor), _stakeAmount0 + _stakeAmount1);
+    assertEq(_amountResult, _stakeAmount0 + _stakeAmount1);
+    assertEq(_delegateeResult, _delegatee1);
+    assertEq(_beneficiaryResult, _beneficiary1);
   }
 }
