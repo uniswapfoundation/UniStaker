@@ -190,7 +190,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @dev The delegatee may not be the zero address. The deposit will be owned by the message
   /// sender, and the beneficiary will also be the message sender.
   function stake(uint256 _amount, address _delegatee)
-    public
+    external
     nonReentrant
     returns (DepositIdentifier _depositId)
   {
@@ -206,7 +206,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @dev Neither the delegatee nor the beneficiary may be the zero address. The deposit will be
   /// owned by the message sender.
   function stake(uint256 _amount, address _delegatee, address _beneficiary)
-    public
+    external
     nonReentrant
     returns (DepositIdentifier _depositId)
   {
@@ -240,7 +240,10 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @param _newDelegatee Address of the new governance delegate.
   /// @dev The new delegatee may not be the zero address. The message sender must be the owner of
   /// the deposit.
-  function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) public nonReentrant {
+  function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee)
+    external
+    nonReentrant
+  {
     _revertIfAddressZero(_newDelegatee);
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
@@ -258,7 +261,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @dev The new beneficiary may not be the zero address. The message sender must be the owner of
   /// the deposit.
   function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary)
-    public
+    external
     nonReentrant
   {
     _revertIfAddressZero(_newBeneficiary);
