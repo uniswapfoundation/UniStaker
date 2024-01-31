@@ -9,8 +9,12 @@ import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
 contract UniStakerTest is Test {
   ERC20Fake rewardToken;
   ERC20VotesMock govToken;
+  address admin;
   address rewardsNotifier;
   UniStaker uniStaker;
+
+  event RewardsNotifierSet(address indexed account, bool isEnabled);
+  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
 
   function setUp() public {
     // Set the block timestamp to an arbitrary value to avoid introducing assumptions into tests
@@ -26,7 +30,13 @@ contract UniStakerTest is Test {
     rewardsNotifier = address(0xaffab1ebeef);
     vm.label(rewardsNotifier, "Rewards Notifier");
 
-    uniStaker = new UniStaker(rewardToken, govToken, rewardsNotifier);
+    admin = makeAddr("admin");
+
+    uniStaker = new UniStaker(rewardToken, govToken, admin);
+
+    vm.prank(admin);
+    uniStaker.setRewardsNotifier(rewardsNotifier, true);
+
     vm.label(address(uniStaker), "UniStaker");
   }
 
@@ -34,7 +44,7 @@ contract UniStakerTest is Test {
     vm.warp(block.timestamp + _seconds);
   }
 
-  function _boundMintAmount(uint256 _amount) internal view returns (uint256) {
+  function _boundMintAmount(uint256 _amount) internal pure returns (uint256) {
     return bound(_amount, 0, 100_000_000_000e18);
   }
 
@@ -45,7 +55,7 @@ contract UniStakerTest is Test {
 
   function _boundToRealisticStake(uint256 _stakeAmount)
     public
-    view
+    pure
     returns (uint256 _boundedStakeAmount)
   {
     _boundedStakeAmount = bound(_stakeAmount, 0.1e18, 25_000_000e18);
@@ -115,19 +125,20 @@ contract Constructor is UniStakerTest {
   function test_SetsTheRewardTokenStakeTokenAndRewardsNotifier() public {
     assertEq(address(uniStaker.REWARDS_TOKEN()), address(rewardToken));
     assertEq(address(uniStaker.STAKE_TOKEN()), address(govToken));
-    assertEq(uniStaker.REWARDS_NOTIFIER(), rewardsNotifier);
+    assertEq(uniStaker.admin(), admin);
   }
 
-  function testFuzz_SetsTheRewardsTokenStakeTokenAndRewardsNotifierToArbitraryAddresses(
+  function testFuzz_SetsTheRewardsTokenStakeTokenAndOwnerToArbitraryAddresses(
     address _rewardsToken,
     address _stakeToken,
-    address _rewardsNotifier
+    address _admin
   ) public {
+    vm.assume(_admin != address(0));
     UniStaker _uniStaker =
-      new UniStaker(IERC20(_rewardsToken), IERC20Delegates(_stakeToken), _rewardsNotifier);
+      new UniStaker(IERC20(_rewardsToken), IERC20Delegates(_stakeToken), _admin);
     assertEq(address(_uniStaker.REWARDS_TOKEN()), address(_rewardsToken));
     assertEq(address(_uniStaker.STAKE_TOKEN()), address(_stakeToken));
-    assertEq(_uniStaker.REWARDS_NOTIFIER(), _rewardsNotifier);
+    assertEq(_uniStaker.admin(), _admin);
   }
 }
 
@@ -1154,6 +1165,88 @@ contract Withdraw is UniStakerTest {
   }
 }
 
+contract SetRewardsNotifier is UniStakerTest {
+  function testFuzz_AllowsAdminToSetRewardsNotifier(address _rewardsNotifier, bool _isEnabled)
+    public
+  {
+    vm.prank(admin);
+    uniStaker.setRewardsNotifier(_rewardsNotifier, _isEnabled);
+
+    assertEq(uniStaker.isRewardsNotifier(_rewardsNotifier), _isEnabled);
+  }
+
+  function test_AllowsTheAdminToDisableAnActiveRewardsNotifier() public {
+    vm.prank(admin);
+    uniStaker.setRewardsNotifier(rewardsNotifier, false);
+
+    assertFalse(uniStaker.isRewardsNotifier(rewardsNotifier));
+  }
+
+  function testFuzz_EmitsEventWhenRewardsNotifierIsSet(address _rewardsNotifier, bool _isEnabled)
+    public
+  {
+    vm.expectEmit();
+    emit RewardsNotifierSet(_rewardsNotifier, _isEnabled);
+    vm.prank(admin);
+    uniStaker.setRewardsNotifier(_rewardsNotifier, _isEnabled);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheAdmin(
+    address _notAdmin,
+    address _newRewardsNotifier,
+    bool _isEnabled
+  ) public {
+    vm.assume(_notAdmin != uniStaker.admin());
+
+    vm.prank(_notAdmin);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not admin"), _notAdmin
+      )
+    );
+    uniStaker.setRewardsNotifier(_newRewardsNotifier, _isEnabled);
+  }
+}
+
+contract SetAdmin is UniStakerTest {
+  function testFuzz_AllowsAdminToSetAdmin(address _newAdmin) public {
+    vm.assume(_newAdmin != address(0));
+
+    vm.prank(admin);
+    uniStaker.setAdmin(_newAdmin);
+
+    assertEq(uniStaker.admin(), _newAdmin);
+  }
+
+  function testFuzz_EmitsEventWhenAdminIsSet(address _newAdmin) public {
+    vm.assume(_newAdmin != address(0));
+
+    vm.expectEmit();
+    emit AdminSet(admin, _newAdmin);
+
+    vm.prank(admin);
+    uniStaker.setAdmin(_newAdmin);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotTheAdmin(address _notAdmin, address _newAdmin) public {
+    vm.assume(_notAdmin != uniStaker.admin());
+
+    vm.prank(_notAdmin);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not admin"), _notAdmin
+      )
+    );
+    uniStaker.setAdmin(_newAdmin);
+  }
+
+  function test_RevertIf_NewAdminAddressIsZeroAddress() public {
+    vm.prank(admin);
+    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    uniStaker.setAdmin(address(0));
+  }
+}
+
 contract UniStakerRewardsTest is UniStakerTest {
   // Because there will be (expected) rounding errors in the amount of rewards earned, this helper
   // checks that the truncated number is lesser and within 1% of the expected number.
@@ -1270,6 +1363,16 @@ contract UniStakerRewardsTest is UniStakerTest {
     uniStaker.notifyRewardsAmount(_amount);
     vm.stopPrank();
   }
+
+  function _mintTransferAndNotifyReward(address _rewardsNotifier, uint256 _amount) public {
+    vm.assume(_rewardsNotifier != address(0));
+    rewardToken.mint(_rewardsNotifier, _amount);
+
+    vm.startPrank(_rewardsNotifier);
+    rewardToken.transfer(address(uniStaker), _amount);
+    uniStaker.notifyRewardsAmount(_amount);
+    vm.stopPrank();
+  }
 }
 
 contract NotifyRewardsAmount is UniStakerRewardsTest {
@@ -1338,10 +1441,42 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     assertEq(uniStaker.rewardPerTokenStored(), uniStaker.rewardPerToken());
   }
 
-  function testFuzz_RevertIf_CallerIsNotTheRewardsNotifier(uint256 _amount, address _notNotifier)
+  function testFuzz_AllowsMultipleApprovedRewardsNotifiersToNotifyOfRewards(
+    uint256 _amount1,
+    uint256 _amount2,
+    uint256 _amount3,
+    address _rewardsNotifier1,
+    address _rewardsNotifier2,
+    address _rewardsNotifier3
+  ) public {
+    _amount1 = _boundToRealisticReward(_amount1);
+    _amount2 = _boundToRealisticReward(_amount2);
+    _amount3 = _boundToRealisticReward(_amount3);
+
+    vm.startPrank(admin);
+    uniStaker.setRewardsNotifier(_rewardsNotifier1, true);
+    uniStaker.setRewardsNotifier(_rewardsNotifier2, true);
+    uniStaker.setRewardsNotifier(_rewardsNotifier3, true);
+    vm.stopPrank();
+
+    // The first notifier notifies
+    _mintTransferAndNotifyReward(_rewardsNotifier1, _amount1);
+
+    // The second notifier notifies
+    _mintTransferAndNotifyReward(_rewardsNotifier2, _amount2);
+
+    // The third notifier notifies
+    _mintTransferAndNotifyReward(_rewardsNotifier3, _amount3);
+    uint256 _expectedRewardRate = (_amount1 + _amount2 + _amount3) / uniStaker.REWARD_DURATION();
+    // because we summed 3 amounts, the rounding error can be as much as 2 units
+    assertApproxEqAbs(uniStaker.rewardRate(), _expectedRewardRate, 2);
+    assertLe(uniStaker.rewardRate(), _expectedRewardRate);
+  }
+
+  function testFuzz_RevertIf_CallerIsNotARewardsNotifier(uint256 _amount, address _notNotifier)
     public
   {
-    vm.assume(_notNotifier != rewardsNotifier && _notNotifier != address(0));
+    vm.assume(!uniStaker.isRewardsNotifier(_notNotifier) && _notNotifier != address(0));
     _amount = _boundToRealisticReward(_amount);
 
     rewardToken.mint(_notNotifier, _amount);
@@ -1378,6 +1513,7 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     // an amount - 1 because rounding errors when calculating the reward rate, which favor the
     // staking contract can actually allow for something just below the amount to meet the criteria
     _transferPercent = _bound(_transferPercent, 1, 99);
+
     uint256 _transferAmount = _percentOf(_amount, _transferPercent);
     rewardToken.mint(rewardsNotifier, _amount);
 
