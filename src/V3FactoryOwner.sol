@@ -70,6 +70,9 @@ contract V3FactoryOwner {
   /// @notice Thrown if the proposed admin is the zero address.
   error V3FactoryOwner__InvalidAddress();
 
+  /// @notice Thrown when the fees collected from a pool are less than the caller expects.
+  error V3FactoryOwner__InsufficientFeesCollected();
+
   /// @param _admin The initial admin address for this deployment. Cannot be zero address.
   /// @param _factory The v3 factory instance for which this deployment will serve as owner.
   /// @param _payoutToken The ERC-20 token in which payouts will be denominated.
@@ -163,6 +166,10 @@ contract V3FactoryOwner {
     (uint128 _amount0, uint128 _amount1) =
       _pool.collectProtocol(_recipient, _amount0Requested, _amount1Requested);
 
+    // Protect the caller from receiving less than requested. See `collectProtocol` for context.
+    if (_amount0 < _amount0Requested || _amount1 < _amount1Requested) {
+      revert V3FactoryOwner__InsufficientFeesCollected();
+    }
     emit FeesClaimed(address(_pool), msg.sender, _recipient, _amount0, _amount1);
   }
 
