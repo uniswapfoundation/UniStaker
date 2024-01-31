@@ -1239,6 +1239,12 @@ contract SetAdmin is UniStakerTest {
     );
     uniStaker.setAdmin(_newAdmin);
   }
+
+  function test_RevertIf_NewAdminAddressIsZeroAddress() public {
+    vm.prank(admin);
+    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    uniStaker.setAdmin(address(0));
+  }
 }
 
 contract UniStakerRewardsTest is UniStakerTest {
