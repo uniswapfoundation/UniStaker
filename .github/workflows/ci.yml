@@ -75,7 +75,7 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@v2
         with:
           coverage-files: ./lcov.info
-          minimum-coverage: 97 # Set coverage threshold. TODO: bump back to 100 after staking is fully tested
+          minimum-coverage: 100
 
   lint:
     runs-on: ubuntu-latest
