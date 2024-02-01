@@ -341,4 +341,27 @@ contract ClaimFees is V3FactoryOwnerTest {
     factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
     vm.stopPrank();
   }
+
+  function testFuzz_RevertIf_CallerExpectsMoreFeesThanPoolPaysOut(
+    uint256 _payoutAmount,
+    address _caller,
+    address _recipient,
+    uint128 _amount0,
+    uint128 _amount1
+  ) public {
+    _deployFactoryOwnerWithPayoutAmount(_payoutAmount);
+    vm.assume(_caller != address(0) && _recipient != address(0));
+    _amount0 = uint128(bound(_amount0, 1, type(uint128).max));
+    _amount1 = uint128(bound(_amount1, 1, type(uint128).max));
+    pool.setReturnZeroFees(true);
+
+    payoutToken.mint(_caller, _payoutAmount);
+
+    vm.startPrank(_caller);
+    payoutToken.approve(address(factoryOwner), _payoutAmount);
+
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InsufficientFeesCollected.selector);
+    factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
+    vm.stopPrank();
+  }
 }
