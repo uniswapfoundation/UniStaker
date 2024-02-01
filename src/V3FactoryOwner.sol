@@ -160,7 +160,7 @@ contract V3FactoryOwner {
     address _recipient,
     uint128 _amount0Requested,
     uint128 _amount1Requested
-  ) external {
+  ) external returns (uint128, uint128) {
     PAYOUT_TOKEN.safeTransferFrom(msg.sender, address(REWARD_RECEIVER), PAYOUT_AMOUNT);
     REWARD_RECEIVER.notifyRewardsAmount(PAYOUT_AMOUNT);
     (uint128 _amount0, uint128 _amount1) =
@@ -171,6 +171,7 @@ contract V3FactoryOwner {
       revert V3FactoryOwner__InsufficientFeesCollected();
     }
     emit FeesClaimed(address(_pool), msg.sender, _recipient, _amount0, _amount1);
+    return (_amount0, _amount1);
   }
 
   /// @notice Ensures the msg.sender is the contract admin and reverts otherwise.

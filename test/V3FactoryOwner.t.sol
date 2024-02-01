@@ -257,12 +257,15 @@ contract ClaimFees is V3FactoryOwnerTest {
 
     vm.startPrank(_caller);
     payoutToken.approve(address(factoryOwner), _payoutAmount);
-    factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
+    (uint256 _amount0Collected, uint256 _amount1Collected) =
+      factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
     vm.stopPrank();
 
     assertEq(pool.lastParam__collectProtocol_recipient(), _recipient);
     assertEq(pool.lastParam__collectProtocol_amount0Requested(), _amount0);
     assertEq(pool.lastParam__collectProtocol_amount1Requested(), _amount1);
+    assertEq(_amount0Collected, _amount0);
+    assertEq(_amount1Collected, _amount1);
   }
 
   function testFuzz_EmitsAnEventWithFeeClaimParameters(
@@ -346,14 +349,24 @@ contract ClaimFees is V3FactoryOwnerTest {
     uint256 _payoutAmount,
     address _caller,
     address _recipient,
-    uint128 _amount0,
-    uint128 _amount1
+    uint128 _amount0Requested,
+    uint128 _amount1Requested,
+    uint128 _amount0Collected,
+    uint128 _amount1Collected
   ) public {
     _deployFactoryOwnerWithPayoutAmount(_payoutAmount);
     vm.assume(_caller != address(0) && _recipient != address(0));
-    _amount0 = uint128(bound(_amount0, 1, type(uint128).max));
-    _amount1 = uint128(bound(_amount1, 1, type(uint128).max));
-    pool.setReturnZeroFees(true);
+    _amount0Requested = uint128(bound(_amount0Requested, 1, type(uint128).max));
+    _amount1Requested = uint128(bound(_amount1Requested, 1, type(uint128).max));
+
+    // sometimes get less amount0, other times get less amount1
+    // uses arbitrary randomness via fuzzed _payoutAmount
+    if (_payoutAmount % 2 == 0) {
+      _amount0Collected = uint128(bound(_amount0Collected, 0, _amount0Requested - 1));
+    } else {
+      _amount1Collected = uint128(bound(_amount1Collected, 0, _amount1Requested - 1));
+    }
+    pool.setNextReturn__collectProtocol(_amount0Collected, _amount1Collected);
 
     payoutToken.mint(_caller, _payoutAmount);
 
@@ -361,7 +374,7 @@ contract ClaimFees is V3FactoryOwnerTest {
     payoutToken.approve(address(factoryOwner), _payoutAmount);
 
     vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InsufficientFeesCollected.selector);
-    factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
+    factoryOwner.claimFees(pool, _recipient, _amount0Requested, _amount1Requested);
     vm.stopPrank();
   }
 }
