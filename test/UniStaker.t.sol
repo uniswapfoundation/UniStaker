@@ -2169,21 +2169,21 @@ contract Earned is UniStakerRewardsTest {
     // The rest of the duration passes
     _jumpAheadByPercentOfRewardDuration(50);
 
-    // Depositor 1 earns half the reward for one third the time and three quarters for two thirds of
+    // Depositor 1 earns a quarter of the reward for one quarter of the time and three quarters for two thirds of
     // the time
-    // uint256 _depositor1ExpectedEarnings =
-    //   _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 40), 25) + _percentOf(_percentOf(_rewardAmount, 40), 50);
-    // assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    uint256 _depositor1ExpectedEarnings =
+      _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 40), 25) + _percentOf(_percentOf(_rewardAmount, 40), 50);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
 
     // Depositor 2 earns half the reward for one third the time and one quarter for two thirds of
     // the time
-    // uint256 _depositor2ExpectedEarnings =
-    //   _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 25) + _percentOf(_percentOf(_rewardAmount, 40), 50) ;
-    // assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
+    uint256 _depositor2ExpectedEarnings =
+      _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 25) + _percentOf(_percentOf(_rewardAmount, 40), 50) ;
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
 
-    // uint256 _depositor3ExpectedEarnings =
-    //   _percentOf(_percentOf(_rewardAmount, 25), 50);
-    // assertLteWithinOnePercent(uniStaker.earned(_depositor3), _depositor3ExpectedEarnings);
+    uint256 _depositor3ExpectedEarnings =
+      _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 25);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor3), _depositor3ExpectedEarnings);
 
     uint256 _depositor4ExpectedEarnings =
       _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 75);
