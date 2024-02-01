@@ -1938,3 +1938,131 @@ contract ClaimReward is UniStakerRewardsTest {
     assertEq(uniStaker.earned(_depositor), 0);
   }
 }
+
+contract Multicall is UniStakerRewardsTest {
+  function _encodeStake(address _delegatee, uint256 _stakeAmount)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return
+      abi.encodeWithSelector(bytes4(keccak256("stake(uint256,address)")), _stakeAmount, _delegatee);
+  }
+
+  function _encodeStake(address _delegatee, uint256 _stakeAmount, address _beneficiary)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("stake(uint256,address,address)")), _stakeAmount, _delegatee, _beneficiary
+    );
+  }
+
+  function _encodeStakeMore(UniStaker.DepositIdentifier _depositId, uint256 _stakeAmount)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("stakeMore(uint256,uint256)")), _depositId, _stakeAmount
+    );
+  }
+
+  function _encodeWithdraw(UniStaker.DepositIdentifier _depositId, uint256 _amount)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return
+      abi.encodeWithSelector(bytes4(keccak256("withdraw(uint256,uint256)")), _depositId, _amount);
+  }
+
+  function _encodeAlterBeneficiary(UniStaker.DepositIdentifier _depositId, address _beneficiary)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("alterBeneficiary(uint256,address)")), _depositId, _beneficiary
+    );
+  }
+
+  function _encodeAlterDelegatee(UniStaker.DepositIdentifier _depositId, address _delegatee)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return abi.encodeWithSelector(
+      bytes4(keccak256("alterDelegatee(uint256,address)")), _depositId, _delegatee
+    );
+  }
+
+  function testFuzz_CanUseMulticallToStakeMultipleTimes(
+    address _depositor,
+    address _delegatee1,
+    address _delegatee2,
+    uint256 _stakeAmount1,
+    uint256 _stakeAmount2
+  ) public {
+    _stakeAmount1 = _boundToRealisticStake(_stakeAmount1);
+    _stakeAmount2 = _boundToRealisticStake(_stakeAmount2);
+    vm.assume(_delegatee1 != address(0) && _delegatee2 != address(0));
+    _mintGovToken(_depositor, _stakeAmount1 + _stakeAmount2);
+
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _stakeAmount1 + _stakeAmount2);
+
+    bytes[] memory _calls = new bytes[](2);
+    _calls[0] = _encodeStake(_delegatee1, _stakeAmount1);
+    _calls[1] = _encodeStake(_delegatee2, _stakeAmount2);
+    vm.prank(_depositor);
+    uniStaker.multicall(_calls);
+    assertEq(uniStaker.totalDeposits(_depositor), _stakeAmount1 + _stakeAmount2);
+  }
+
+  function testFuzz_CanUseMulticallToStakeAndAlterBeneficiaryAndDelegatee(
+    address _depositor,
+    address _delegatee0,
+    address _delegatee1,
+    address _beneficiary0,
+    address _beneficiary1,
+    uint256 _stakeAmount0,
+    uint256 _stakeAmount1,
+    uint256 _timeElapsed
+  ) public {
+    _stakeAmount0 = _boundToRealisticStake(_stakeAmount0);
+    _stakeAmount1 = _boundToRealisticStake(_stakeAmount1);
+
+    vm.assume(
+      _depositor != address(0) && _delegatee0 != address(0) && _delegatee1 != address(0)
+        && _beneficiary0 != address(0) && _beneficiary1 != address(0)
+    );
+    _mintGovToken(_depositor, _stakeAmount0 + _stakeAmount1);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _stakeAmount0 + _stakeAmount1);
+
+    // first, do initial stake without multicall
+    UniStaker.DepositIdentifier _depositId =
+      uniStaker.stake(_stakeAmount0, _delegatee0, _beneficiary0);
+
+    // some time goes by...
+    vm.warp(_timeElapsed);
+
+    // now I want to stake more, and also change my delegatee and beneficiary
+    bytes[] memory _calls = new bytes[](3);
+    _calls[0] = _encodeStakeMore(_depositId, _stakeAmount1);
+    _calls[1] = _encodeAlterBeneficiary(_depositId, _beneficiary1);
+    _calls[2] = _encodeAlterDelegatee(_depositId, _delegatee1);
+    uniStaker.multicall(_calls);
+    vm.stopPrank();
+
+    (uint256 _amountResult,, address _delegateeResult, address _beneficiaryResult) =
+      uniStaker.deposits(_depositId);
+    assertEq(uniStaker.totalDeposits(_depositor), _stakeAmount0 + _stakeAmount1);
+    assertEq(_amountResult, _stakeAmount0 + _stakeAmount1);
+    assertEq(_delegateeResult, _delegatee1);
+    assertEq(_beneficiaryResult, _beneficiary1);
+  }
+}
