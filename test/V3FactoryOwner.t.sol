@@ -243,7 +243,7 @@ contract ClaimFees is V3FactoryOwnerTest {
     assertEq(rewardReceiver.lastParam__notifyRewardsAmount_amount(), _payoutAmount);
   }
 
-  function testFuzz_CallsPoolCollectProtocolMethodWithRecipientAndAmountsRequested(
+  function testFuzz_CallsPoolCollectProtocolMethodWithRecipientAndAmountsRequestedAndReturnsForwardedFeeAmountsFromPool(
     uint256 _payoutAmount,
     address _caller,
     address _recipient,

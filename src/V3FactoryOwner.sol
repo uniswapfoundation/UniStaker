@@ -154,6 +154,8 @@ contract V3FactoryOwner {
   /// method.
   /// @param _amount1Requested The amount1Requested param to forward to the pool's collectProtocol
   /// method.
+  /// @return _amount0 The amount0 fees collected, returned by the pool's collectProtocol method.
+  /// @return _amount1 The amount1 fees collected, returned by the pool's collectProtocol method.
   /// @dev See docs on IUniswapV3PoolOwnerActions for more information on forwarded params.
   function claimFees(
     IUniswapV3PoolOwnerActions _pool,
