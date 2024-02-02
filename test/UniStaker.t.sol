@@ -2468,57 +2468,61 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
   }
 
-  // function testFuzz_CalculatesCorrectEarningsWhenTwoUsersDepositForPartialDurationsAndThereAreThreeRewards(
-  //   address _depositor1,
-  //   address _depositor2,
-  //   address _depositor3,
-  //   address _delegatee,
-  //   uint256 _stakeAmount,
-  //   uint256 _rewardAmount1,
-  //   uint256 _rewardAmount2,
-  //   uint256 _rewardAmount3
-  // ) public {
-  //   vm.assume(_depositor1 != _depositor2);
-  //   (_stakeAmount, _rewardAmount1) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount1);
-  //   (_stakeAmount, _rewardAmount2) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount2);
-  //   (_stakeAmount, _rewardAmount3) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount3);
+  function testFuzz_CalculatesCorrectEarningsWhenTwoUsersDepositForPartialDurationsAndThereAreThreeRewards(
+    address _depositor1,
+    address _depositor2,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount1,
+    uint256 _rewardAmount2,
+    uint256 _rewardAmount3
+  ) public {
+    vm.assume(_depositor1 != _depositor2);
+    (_stakeAmount, _rewardAmount1) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount1);
+    (_stakeAmount, _rewardAmount2) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount2);
+    (_stakeAmount, _rewardAmount3) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount3);
 
-  //   // The contract is notified of a reward
-  //   _mintTransferAndNotifyReward(_rewardAmount1);
-  //   // One quarter of the duration elapses
-  //   _jumpAheadByPercentOfRewardDuration(25);
-  //   // A user stakes some tokens
-  //   _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
-  //   // Another 40 percent of the duration time elapses
-  //   _jumpAheadByPercentOfRewardDuration(40);
-  //   // Another user stakes some tokens
-  //   _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
-  //   // Another quarter of the duration elapses
-  //   _jumpAheadByPercentOfRewardDuration(25);
-  //   // The contract receives another reward, resetting the duration
-  //   _mintTransferAndNotifyReward(_rewardAmount2);
-  //   // Another 20 percent of the duration elapses
-  //   _jumpAheadByPercentOfRewardDuration(20);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount1);
+    // One quarter of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(25);
+    // A user stakes some tokens
+    _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
+    // Another 20 percent of the duration time elapses
+    _jumpAheadByPercentOfRewardDuration(20);
+    // Another user stakes some tokens
+    _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
+    // Another 20 percent of the duration time elapses
+    _jumpAheadByPercentOfRewardDuration(20);
+    // The contract receives another reward, resetting the duration
+    _mintTransferAndNotifyReward(_rewardAmount2);
+    // Another quarter of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(20);
+    // The contract receives another reward, resetting the duration
+    _mintTransferAndNotifyReward(_rewardAmount3);
+    // Another 20 percent of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(20);
 
-  //   // The second depositor earns:
-  //   // * Half the rewards distributed (split with depositor 1) over 1/4 of the duration, where the
-  //   //   rewards being earned are all from the first reward notification
-  //   // * Half the rewards (split with depositor 1) over 1/5 of the duration, where the rewards
-  //   //   being earned are the remaining 10% of the first reward notification, plus the second
-  //   //   reward notification
-  //   uint256 _depositor2ExpectedEarnings = _percentOf(_percentOf(_rewardAmount1, 25), 50)
-  //     + _percentOf(_percentOf(_percentOf(_rewardAmount1, 10) + _rewardAmount2, 20), 50);
+    // The second depositor earns:
+    // * Half the rewards distributed (split with depositor 1) over 1/4 of the duration, where the
+    //   rewards being earned are all from the first reward notification
+    // * Half the rewards (split with depositor 1) over 1/5 of the duration, where the rewards
+    //   being earned are the remaining 10% of the first reward notification, plus the second
+    //   reward notification
+    uint256 _depositor2ExpectedEarnings = _percentOf(_percentOf(_rewardAmount1, 20), 50)
+      + _percentOf(_percentOf(_percentOf(_rewardAmount1, 35) + _rewardAmount2, 20), 50) + _percentOf(_percentOf(_percentOf(_rewardAmount1, 28) + _percentOf(_rewardAmount2, 80) + _rewardAmount3, 20), 50);
+	  // 28 is 7 percent minus 35, because 35/7
 
-  //   // The first depositor earns the same amount as the second depositor, since they had the same
-  //   // stake and thus split the rewards during the period where both were staking. But the first
-  //   // depositor also earned all of the rewards for 40% of the duration, where the rewards being
-  //   // earned were from the first reward notification.
-  //   uint256 _depositor1ExpectedEarnings =
-  //     _percentOf(_rewardAmount1, 40) + _depositor2ExpectedEarnings;
+    // // The first depositor earns the same amount as the second depositor, since they had the same
+    // // stake and thus split the rewards during the period where both were staking. But the first
+    // // depositor also earned all of the rewards for 40% of the duration, where the rewards being
+    // // earned were from the first reward notification.
+    uint256 _depositor1ExpectedEarnings =
+      _percentOf(_rewardAmount1, 20) + _depositor2ExpectedEarnings;
 
-  //   assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
-  //   assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
-  // }
+    assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
+    assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
+  }
 
   // function testFuzz_CalculatesCorrectEarningsWhenTwoUsersDepositDifferentAmountsForPartialDurationsAndThereAreThreeRewards(
   //   address _depositor1,
