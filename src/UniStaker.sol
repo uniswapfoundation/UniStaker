@@ -29,20 +29,40 @@ import {Multicall} from "openzeppelin/utils/Multicall.sol";
 contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   type DepositIdentifier is uint256;
 
+  /// @notice Emitted when a depositor initially deposits a stake or deposits additional stake for 
+  /// the same deposit.
   event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 totalDeposited);
+
+  /// @notice Emitted when a depositor withdraws a portion or all of the their stake for a given deposit.
   event StakeWithdrawn(
     DepositIdentifier indexed depositId, uint256 amount, uint256 remainingAmount
   );
+
+  /// @notice Emitted when a deposits delegatee is changed.
   event DelegateeAltered(
     DepositIdentifier indexed depositId, address oldDelegatee, address newDelegatee
   );
+
+  /// @notice Emitted when a deposits beneficiary is changed.
   event BeneficiaryAltered(
     DepositIdentifier indexed depositId,
     address indexed oldBeneficiary,
     address indexed newBeneficiary
   );
+
+  /// @notice Emitted when a beneficiary claims their earned reward.
   event RewardClaimed(address indexed beneficiary, uint256 amount);
+
+  /// @notice Emitted when UniStaker is notified of a new reward.
   event RewardNotified(uint256 amount);
+
+  /// @notice Emitted when the admin address is set.
+  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
+
+  /// @notice Emitted when a rewards notifier address is enabled or disabled.
+  event RewardsNotifierSet(address indexed account, bool isEnabled);
+
+  /// @notice Emitted when a surrogate contract is deployed.
   event SurrogateDeployed(address indexed delegatee, address indexed surrogate);
 
   /// @notice Thrown when an account attempts a call for which it lacks appropriate permission.
@@ -60,12 +80,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
   /// @notice Thrown if a caller attempts to specify address zero for certain designated addresses.
   error UniStaker__InvalidAddress();
-
-  /// @notice Emitted when the admin address is set.
-  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
-
-  /// @notice Emitted when a rewards notifier address is enabled or disabled.
-  event RewardsNotifierSet(address indexed account, bool isEnabled);
 
   /// @notice Metadata associated with a discrete staking deposit.
   /// @param balance The deposit's staked balance.
