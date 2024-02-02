@@ -2796,7 +2796,7 @@ contract Earned is UniStakerRewardsTest {
     // These are the total rewards distributed by the contract after the second depositor adds
     // their stake. It is the first reward for a fifth of the duration, plus the remaining 35% of
     // the first reward, plus 20% the second reward, for a fifth of the duration, plus the 80% of
-	// the previous amount plus the third reward for 20% of the duration.
+    // the previous amount plus the third reward for 20% of the duration.
     uint256 _combinedPhaseExpectedTotalRewards = _percentOf(_rewardAmount1, 20)
       + _percentOf(_percentOf(_rewardAmount1, 35) + _rewardAmount2, 20)
       + _percentOf(
