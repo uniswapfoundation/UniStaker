@@ -70,6 +70,9 @@ contract V3FactoryOwner {
   /// @notice Thrown if the proposed admin is the zero address.
   error V3FactoryOwner__InvalidAddress();
 
+  /// @notice Thrown when the fees collected from a pool are less than the caller expects.
+  error V3FactoryOwner__InsufficientFeesCollected();
+
   /// @param _admin The initial admin address for this deployment. Cannot be zero address.
   /// @param _factory The v3 factory instance for which this deployment will serve as owner.
   /// @param _payoutToken The ERC-20 token in which payouts will be denominated.
@@ -151,19 +154,26 @@ contract V3FactoryOwner {
   /// method.
   /// @param _amount1Requested The amount1Requested param to forward to the pool's collectProtocol
   /// method.
+  /// @return _amount0 The amount0 fees collected, returned by the pool's collectProtocol method.
+  /// @return _amount1 The amount1 fees collected, returned by the pool's collectProtocol method.
   /// @dev See docs on IUniswapV3PoolOwnerActions for more information on forwarded params.
   function claimFees(
     IUniswapV3PoolOwnerActions _pool,
     address _recipient,
     uint128 _amount0Requested,
     uint128 _amount1Requested
-  ) external {
+  ) external returns (uint128, uint128) {
     PAYOUT_TOKEN.safeTransferFrom(msg.sender, address(REWARD_RECEIVER), PAYOUT_AMOUNT);
     REWARD_RECEIVER.notifyRewardsAmount(PAYOUT_AMOUNT);
     (uint128 _amount0, uint128 _amount1) =
       _pool.collectProtocol(_recipient, _amount0Requested, _amount1Requested);
 
+    // Protect the caller from receiving less than requested. See `collectProtocol` for context.
+    if (_amount0 < _amount0Requested || _amount1 < _amount1Requested) {
+      revert V3FactoryOwner__InsufficientFeesCollected();
+    }
     emit FeesClaimed(address(_pool), msg.sender, _recipient, _amount0, _amount1);
+    return (_amount0, _amount1);
   }
 
   /// @notice Ensures the msg.sender is the contract admin and reverts otherwise.
