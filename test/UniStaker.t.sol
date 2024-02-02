@@ -2018,6 +2018,40 @@ contract Earned is UniStakerRewardsTest {
       uniStaker.earned(_beneficiary2), _percentOf(_rewardAmount, 100 - _percentDuration)
     );
   }
+  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationAndClaims(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+
+    // The full duration passes
+    _jumpAheadByPercentOfRewardDuration(101);
+	vm.prank(_depositor);
+	uniStaker.claimReward();
+
+
+    // Send new rewards
+    _mintTransferAndNotifyReward(_rewardAmount);
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+	uint256 balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor));
+
+	assertLteWithinOnePercent(balance, _rewardAmount);
+    // The user should have earned one third of the rewards
+    assertLteWithinOnePercent(
+      uniStaker.earned(_depositor), _percentOf(_rewardAmount, _durationPercent)
+    );
+
+  }
 
   function testFuzz_CalculatesCorrectEarningsForFourUsersThatDepositEqualStakeForFullDurationWhereOneIsABeneficiaryOfTwoOthers(
     address _depositor1,
