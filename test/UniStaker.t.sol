@@ -1971,6 +1971,34 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
   }
 
+  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithDelayedReward(
+    address _depositor,
+    address _delegatee,
+    uint256 _stakeAmount,
+    uint256 _rewardAmount,
+    uint16 _noRewardsSkip
+  ) public {
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+
+    // The full duration passes
+    _jumpAheadByPercentOfRewardDuration(100);
+    _jumpAheadByPercentOfRewardDuration(_noRewardsSkip);
+
+    // Send new rewards
+    _mintTransferAndNotifyReward(_rewardAmount);
+    _jumpAheadByPercentOfRewardDuration(100);
+
+    // The user should have earned all the rewards
+    assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount * 2);
+  }
+
+
+
   function testFuzz_CalculatesCorrectEarningsWhenASingleDepositorUpdatesTheirBeneficiaryWithNoNewRewards(
     address _depositor,
     address _delegatee,
