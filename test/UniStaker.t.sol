@@ -1923,7 +1923,7 @@ contract Earned is UniStakerRewardsTest {
     );
   }
 
-  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDurationWithABenificiary(
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDurationWithABeneficiary(
     address _depositor,
     address _delegatee,
     address _beneficiary,
@@ -1946,7 +1946,7 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_beneficiary), _percentOf(_rewardAmount, 34));
   }
 
-  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithNoNewRewards(
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithNoNewRewards(
     address _depositor,
     address _delegatee,
     uint256 _stakeAmount,
@@ -1971,7 +1971,7 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount);
   }
 
-  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithDelayedReward(
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationWithDelayedReward(
     address _depositor,
     address _delegatee,
     uint256 _stakeAmount,
@@ -2041,7 +2041,7 @@ contract Earned is UniStakerRewardsTest {
     );
   }
 
-  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationAndClaims(
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationAndClaims(
     address _depositor,
     address _delegatee,
     uint256 _stakeAmount,
@@ -2074,7 +2074,7 @@ contract Earned is UniStakerRewardsTest {
     );
   }
 
-  function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForThePartialDurationAndClaims(
+  function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsStakeForThePartialDurationAndClaims(
     address _depositor,
     address _delegatee,
     uint256 _stakeAmount,
