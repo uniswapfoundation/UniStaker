@@ -2464,7 +2464,7 @@ contract Earned is UniStakerRewardsTest {
     // all of the rewards being dripped, which now comprised of the remaining third of the first
     // reward plus the second reward.
     uint256 _depositorExpectedEarnings = _percentOf(_rewardAmount1, 40)
-      + _percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 30) + _percentOf(_percentOf(_percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 30), 70) + _rewardAmount3, 30);
+      + _percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 30) + _percentOf(_percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 70) + _rewardAmount3, 30);
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
   }
 
