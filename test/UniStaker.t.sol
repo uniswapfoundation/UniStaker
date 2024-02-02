@@ -6,8 +6,9 @@ import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniSt
 import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
 import {ERC20VotesMock, ERC20Permit} from "test/mocks/MockERC20Votes.sol";
 import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
+import {PercentAssertions} from "test/helpers/PercentAssertions.sol";
 
-contract UniStakerTest is Test {
+contract UniStakerTest is Test, PercentAssertions {
   ERC20Fake rewardToken;
   ERC20VotesMock govToken;
   address admin;
@@ -2625,59 +2626,6 @@ contract SetAdmin is UniStakerTest {
 }
 
 contract UniStakerRewardsTest is UniStakerTest {
-  // Because there will be (expected) rounding errors in the amount of rewards earned, this helper
-  // checks that the truncated number is lesser and within 1% of the expected number.
-  function assertLteWithinOnePercent(uint256 a, uint256 b) public {
-    if (a > b) {
-      emit log("Error: a <= b not satisfied");
-      emit log_named_uint("  Expected", b);
-      emit log_named_uint("    Actual", a);
-
-      fail();
-    }
-
-    uint256 minBound = (b * 9900) / 10_000;
-
-    if (a < minBound) {
-      emit log("Error: a >= 0.99 * b not satisfied");
-      emit log_named_uint("  Expected", b);
-      emit log_named_uint("    Actual", a);
-      emit log_named_uint("  minBound", minBound);
-
-      fail();
-    }
-  }
-
-  // This helper is for normal rounding errors, i.e. if the number might be truncated down by 1
-  function assertLteWithinOneUnit(uint256 a, uint256 b) public {
-    if (a > b) {
-      emit log("Error: a <= b not satisfied");
-      emit log_named_uint("  Expected", b);
-      emit log_named_uint("    Actual", a);
-
-      fail();
-    }
-
-    uint256 minBound = b - 1;
-
-    if (!((a == b) || (a == minBound))) {
-      emit log("Error: a == b || a  == b-1");
-      emit log_named_uint("  Expected", b);
-      emit log_named_uint("    Actual", a);
-
-      fail();
-    }
-  }
-
-  function _percentOf(uint256 _amount, uint256 _percent) public pure returns (uint256) {
-    // For cases where the percentage is less than 100, we calculate the percentage by
-    // taking the inverse percentage and subtracting it. This effectively rounds _up_ the
-    // value by putting the truncation on the opposite side. For example, 92% of 555 is 510.6.
-    // Calculating it in this way would yield (555 - 44) = 511, instead of 510.
-    if (_percent < 100) return _amount - ((100 - _percent) * _amount) / 100;
-    else return (_percent * _amount) / 100;
-  }
-
   // Helper methods for dumping contract state related to rewards calculation for debugging
   function __dumpDebugGlobalRewards() public view {
     console2.log("reward balance");

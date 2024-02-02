@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
@@ -20,6 +21,8 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   UniStaker uniStaker;
   V3FactoryOwner v3FactoryOwner;
   GovernorBravoDelegate governor = GovernorBravoDelegate(UNISWAP_GOVERNOR_ADDRESS);
+  address rewardNotifier;
+  IERC20 rewardToken = IERC20(PAYOUT_TOKEN_ADDRESS);
 
   enum VoteType {
     Against,
