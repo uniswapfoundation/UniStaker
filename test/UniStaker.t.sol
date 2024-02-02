@@ -1997,8 +1997,6 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _rewardAmount * 2);
   }
 
-
-
   function testFuzz_CalculatesCorrectEarningsWhenASingleDepositorUpdatesTheirBeneficiaryWithNoNewRewards(
     address _depositor,
     address _delegatee,
@@ -2197,11 +2195,11 @@ contract Earned is UniStakerRewardsTest {
     // The full duration passes
     _jumpAheadByPercentOfRewardDuration(101);
 
-	vm.prank(_depositor1);
-	uniStaker.claimReward();
+    vm.prank(_depositor1);
+    uniStaker.claimReward();
 
-	vm.prank(_depositor2);
-	uniStaker.claimReward();
+    vm.prank(_depositor2);
+    uniStaker.claimReward();
 
     uint256 depositor1Balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor1));
     uint256 depositor2Balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor2));
@@ -2233,11 +2231,11 @@ contract Earned is UniStakerRewardsTest {
     _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
-	// Claim rewards
+    // Claim rewards
     // One third of the duration passes
     _jumpAheadByPercentOfRewardDuration(34);
-	vm.prank(_depositor1);
-	uniStaker.claimReward();
+    vm.prank(_depositor1);
+    uniStaker.claimReward();
     // The first user triples their deposit by staking 2x more
     _mintGovToken(_depositor1, 2 * _stakeAmount);
     vm.startPrank(_depositor1);
@@ -2249,8 +2247,7 @@ contract Earned is UniStakerRewardsTest {
 
     // Depositor 1 earns half the reward for one third the time and three quarters for two thirds of
     // the time
-    uint256 _depositor1ExpectedEarnings =
-      _percentOf(_percentOf(_rewardAmount, 75), 66);
+    uint256 _depositor1ExpectedEarnings = _percentOf(_percentOf(_rewardAmount, 75), 66);
     // Depositor 2 earns half the reward for one third the time and one quarter for two thirds of
     // the time
     uint256 _depositor2ExpectedEarnings =
@@ -2266,7 +2263,6 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(depositor1Balance, _percentOf(_percentOf(_rewardAmount, 50), 34));
     assertLteWithinOnePercent(depositor2Balance, 0);
   }
-
 
   function testFuzz_CalculatesCorrectEarningsForFourUsersThatDepositEqualStakeForFullDurationWhereOneIsABeneficiaryOfTwoOthers(
     address _depositor1,
