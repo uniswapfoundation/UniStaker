@@ -16,6 +16,9 @@
   # Speed up compilation and tests during development.
   optimizer = false
 
+[rpc_endpoints]
+  mainnet = "${MAINNET_RPC_URL}"
+
 [fmt]
   bracket_spacing = false
   int_types = "long"
