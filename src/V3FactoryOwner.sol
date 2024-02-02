@@ -99,15 +99,6 @@ contract V3FactoryOwner {
     admin = _newAdmin;
   }
 
-  /// @notice Passthrough method that transfers ownership of the factory from this contract to a
-  /// specified new address. Must be called by the admin.
-  /// @param _newOwner The address that will serve as the factory's owner after this call
-  /// completes.
-  function transferFactoryOwnership(address _newOwner) external {
-    _revertIfNotAdmin();
-    FACTORY.setOwner(_newOwner);
-  }
-
   /// @notice Passthrough method that enables a fee amount on the factory. Must be called by the
   /// admin.
   /// @param _fee The fee param to forward to the factory.

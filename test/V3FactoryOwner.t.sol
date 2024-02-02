@@ -146,26 +146,6 @@ contract SetAdmin is V3FactoryOwnerTest {
   }
 }
 
-contract TransferFactoryOwnership is V3FactoryOwnerTest {
-  function testFuzz_ForwardsNewOwnerToSetOwnerMethodOnFactory(address _newOwner) public {
-    _deployFactoryOwnerWithPayoutAmount(0);
-
-    vm.prank(admin);
-    factoryOwner.transferFactoryOwnership(_newOwner);
-
-    assertEq(factory.lastParam__setOwner_owner(), _newOwner);
-  }
-
-  function testFuzz_RevertIf_TheCallerIsNotTheAdmin(address _notAdmin, address _newOwner) public {
-    _deployFactoryOwnerWithPayoutAmount(0);
-    vm.assume(_notAdmin != admin);
-
-    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__Unauthorized.selector);
-    vm.prank(_notAdmin);
-    factoryOwner.transferFactoryOwnership(_newOwner);
-  }
-}
-
 contract EnableFeeAmount is V3FactoryOwnerTest {
   function testFuzz_ForwardsParametersToTheEnableFeeAmountMethodOnTheFactory(
     uint24 _fee,
