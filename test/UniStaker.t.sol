@@ -1900,14 +1900,12 @@ contract Earned is UniStakerRewardsTest {
   function testFuzz_CalculatesCorrectEarningsForASingleUserStakeForPartialDurationWithABeneficiary(
     address _depositor,
     address _delegatee,
-	address _beneficiary,
+    address _beneficiary,
     uint256 _stakeAmount,
     uint256 _rewardAmount,
     uint256 _durationPercent
   ) public {
-    vm.assume(
-      _beneficiary != address(0)  
-	);
+    vm.assume(_beneficiary != address(0));
 
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
@@ -1928,13 +1926,11 @@ contract Earned is UniStakerRewardsTest {
   function testFuzz_CalculatesCorrectEarningsForASingleUserThatDepositsPartiallyThroughTheDurationWithABenificiary(
     address _depositor,
     address _delegatee,
-	address _beneficiary,
+    address _beneficiary,
     uint256 _stakeAmount,
     uint256 _rewardAmount
   ) public {
-    vm.assume(
-      _beneficiary != address(0)  
-	);
+    vm.assume(_beneficiary != address(0));
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // The contract is notified of a reward
@@ -2018,6 +2014,7 @@ contract Earned is UniStakerRewardsTest {
       uniStaker.earned(_beneficiary2), _percentOf(_rewardAmount, 100 - _percentDuration)
     );
   }
+
   function testFuzz_CalaculatesCorrectEarningsForASingleUserThatDepositsStakeForTheFullDurationAndClaims(
     address _depositor,
     address _delegatee,
@@ -2035,17 +2032,16 @@ contract Earned is UniStakerRewardsTest {
 
     // The full duration passes
     _jumpAheadByPercentOfRewardDuration(101);
-	vm.prank(_depositor);
-	uniStaker.claimReward();
-
+    vm.prank(_depositor);
+    uniStaker.claimReward();
 
     // Send new rewards
     _mintTransferAndNotifyReward(_rewardAmount);
     _jumpAheadByPercentOfRewardDuration(_durationPercent);
 
-	uint256 balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor));
+    uint256 balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor));
 
-	assertLteWithinOnePercent(balance, _rewardAmount);
+    assertLteWithinOnePercent(balance, _rewardAmount);
     // The user should have earned one third of the rewards
     assertLteWithinOnePercent(
       uniStaker.earned(_depositor), _percentOf(_rewardAmount, _durationPercent)
@@ -2069,19 +2065,18 @@ contract Earned is UniStakerRewardsTest {
 
     // The full duration passes
     _jumpAheadByPercentOfRewardDuration(_durationPercent);
-	vm.prank(_depositor);
-	uniStaker.claimReward();
+    vm.prank(_depositor);
+    uniStaker.claimReward();
     _jumpAheadByPercentOfRewardDuration(100 - _durationPercent);
 
-	uint256 balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor));
+    uint256 balance = uniStaker.REWARDS_TOKEN().balanceOf(address(_depositor));
 
-	assertLteWithinOnePercent(balance, _percentOf(_rewardAmount, _durationPercent));
+    assertLteWithinOnePercent(balance, _percentOf(_rewardAmount, _durationPercent));
     // The user should have earned one third of the rewards
     assertLteWithinOnePercent(
-      uniStaker.earned(_depositor), _percentOf(_rewardAmount, 100-_durationPercent)
+      uniStaker.earned(_depositor), _percentOf(_rewardAmount, 100 - _durationPercent)
     );
   }
-
 
   function testFuzz_CalculatesCorrectEarningsForTwoUsersThatDepositEqualStakeForFullDuration(
     address _depositor1,
@@ -2155,14 +2150,18 @@ contract Earned is UniStakerRewardsTest {
 
   function testFuzz_CalculatesCorrectEarningsForFourUsersThatDepositEqualStakeForFullDurationWhereOneIsABeneficiaryOfTwoOthers(
     address _depositor1,
-	address _depositor2,
-	address _depositor3,
-	address _depositor4,
+    address _depositor2,
+    address _depositor3,
+    address _depositor4,
     address _delegatee,
     uint256 _stakeAmount,
     uint256 _rewardAmount
   ) public {
-    vm.assume(_depositor1 != _depositor2 && _depositor1 != _depositor2 && _depositor2 != _depositor3 && _depositor1 != _depositor3 && _depositor1 != _depositor4 && _depositor2 != _depositor4 && _depositor3 != _depositor4);
+    vm.assume(
+      _depositor1 != _depositor2 && _depositor1 != _depositor2 && _depositor2 != _depositor3
+        && _depositor1 != _depositor3 && _depositor1 != _depositor4 && _depositor2 != _depositor4
+        && _depositor3 != _depositor4
+    );
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
@@ -2195,7 +2194,11 @@ contract Earned is UniStakerRewardsTest {
     uint256 _stakeAmount,
     uint256 _rewardAmount
   ) public {
-    vm.assume(_depositor1 != _depositor2 && _depositor1 != _depositor2 && _depositor2 != _depositor3 && _depositor1 != _depositor3 && _depositor1 != _depositor4 && _depositor2 != _depositor4 && _depositor3 != _depositor4);
+    vm.assume(
+      _depositor1 != _depositor2 && _depositor1 != _depositor2 && _depositor2 != _depositor3
+        && _depositor1 != _depositor3 && _depositor1 != _depositor4 && _depositor2 != _depositor4
+        && _depositor3 != _depositor4
+    );
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
@@ -2205,15 +2208,14 @@ contract Earned is UniStakerRewardsTest {
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
     _boundMintAndStake(_depositor2, _stakeAmount, _delegatee);
-   // Some time passes
+    // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
     _boundMintAndStake(_depositor3, _stakeAmount, _delegatee, _depositor2);
-   // Some time passes
+    // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
     _boundMintAndStake(_depositor4, _stakeAmount, _delegatee, _depositor1);
-
 
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -2252,7 +2254,11 @@ contract Earned is UniStakerRewardsTest {
     uint256 _stakeAmount,
     uint256 _rewardAmount
   ) public {
-    vm.assume(_depositor1 != _depositor2 && _depositor1 != _depositor2 && _depositor2 != _depositor3 && _depositor1 != _depositor3 && _depositor1 != _depositor4 && _depositor2 != _depositor4 && _depositor3 != _depositor4);
+    vm.assume(
+      _depositor1 != _depositor2 && _depositor1 != _depositor2 && _depositor2 != _depositor3
+        && _depositor1 != _depositor3 && _depositor1 != _depositor4 && _depositor2 != _depositor4
+        && _depositor3 != _depositor4
+    );
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
@@ -2261,16 +2267,17 @@ contract Earned is UniStakerRewardsTest {
     // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
-    (, UniStaker.DepositIdentifier _depositId2) = _boundMintAndStake(_depositor2, _stakeAmount, _depositor1);
-   // Some time passes
+    (, UniStaker.DepositIdentifier _depositId2) =
+      _boundMintAndStake(_depositor2, _stakeAmount, _depositor1);
+    // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
-    (, UniStaker.DepositIdentifier _depositId3) = _boundMintAndStake(_depositor3, _stakeAmount,  _depositor1);
-   // Some time passes
+    (, UniStaker.DepositIdentifier _depositId3) =
+      _boundMintAndStake(_depositor3, _stakeAmount, _depositor1);
+    // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
-    _boundMintAndStake(_depositor4, _stakeAmount,  _depositor1);
-
+    _boundMintAndStake(_depositor4, _stakeAmount, _depositor1);
 
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -2281,51 +2288,53 @@ contract Earned is UniStakerRewardsTest {
     vm.startPrank(_depositor1);
     govToken.approve(address(uniStaker), _stakeAmount);
     uniStaker.stakeMore(_depositId1, _stakeAmount);
-	vm.stopPrank();
+    vm.stopPrank();
 
-	// Stake again
+    // Stake again
     _jumpAheadByPercentOfRewardDuration(25);
-	vm.startPrank(_depositor2);
+    vm.startPrank(_depositor2);
     _mintGovToken(_depositor2, _stakeAmount);
     vm.startPrank(_depositor2);
     govToken.approve(address(uniStaker), _stakeAmount);
     uniStaker.stakeMore(_depositId2, _stakeAmount);
     vm.stopPrank();
 
-	vm.startPrank(_depositor3);
-	uniStaker.alterBeneficiary(_depositId3, _depositor1);
+    vm.startPrank(_depositor3);
+    uniStaker.alterBeneficiary(_depositId3, _depositor1);
     vm.stopPrank();
 
     vm.startPrank(_depositor1);
-	uniStaker.withdraw(_depositId1, _stakeAmount);
-	vm.stopPrank();
+    uniStaker.withdraw(_depositId1, _stakeAmount);
+    vm.stopPrank();
 
     // The rest of the duration passes
     _jumpAheadByPercentOfRewardDuration(50);
 
-    // Depositor 1 earns 25% of the reward for one quarter of the time and 40% of the reward one quarter of
-    // the time 
+    // Depositor 1 earns 25% of the reward for one quarter of the time and 40% of the reward one
+    // quarter of
+    // the time
     uint256 _depositor1ExpectedEarnings =
       _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 40), 75);
     assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
 
-    // Depositor 2 earns a quarter of the reward for one quarter of the time, 20 percent of the reward one quarter of the time, 40 perccent of the reward half the time
-    uint256 _depositor2ExpectedEarnings =
-      _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 25) + _percentOf(_percentOf(_rewardAmount, 40), 50) ;
+    // Depositor 2 earns a quarter of the reward for one quarter of the time, 20 percent of the
+    // reward one quarter of the time, 40 perccent of the reward half the time
+    uint256 _depositor2ExpectedEarnings = _percentOf(_percentOf(_rewardAmount, 25), 25)
+      + _percentOf(_percentOf(_rewardAmount, 20), 25) + _percentOf(_percentOf(_rewardAmount, 40), 50);
     assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
 
-	// Depositor 3 earns 25% of the reward for a quarter of the time, 20% of the reward a quarter of the time and no reward half the time.
+    // Depositor 3 earns 25% of the reward for a quarter of the time, 20% of the reward a quarter of
+    // the time and no reward half the time.
     uint256 _depositor3ExpectedEarnings =
       _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 25);
     assertLteWithinOnePercent(uniStaker.earned(_depositor3), _depositor3ExpectedEarnings);
 
-	// Depositor 4 earns 25% of the reward for a quarter of the time, 20% of the reward 3 quarters of the time.
+    // Depositor 4 earns 25% of the reward for a quarter of the time, 20% of the reward 3 quarters
+    // of the time.
     uint256 _depositor4ExpectedEarnings =
       _percentOf(_percentOf(_rewardAmount, 25), 25) + _percentOf(_percentOf(_rewardAmount, 20), 75);
     assertLteWithinOnePercent(uniStaker.earned(_depositor4), _depositor4ExpectedEarnings);
   }
-
-
 
   function testFuzz_CalculatesCorrectEarningsWhenAUserStakesThroughTheDurationAndAnotherStakesPartially(
     address _depositor1,
@@ -2527,7 +2536,10 @@ contract Earned is UniStakerRewardsTest {
     // all of the rewards being dripped, which now comprised of the remaining third of the first
     // reward plus the second reward.
     uint256 _depositorExpectedEarnings = _percentOf(_rewardAmount1, 40)
-      + _percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 30) + _percentOf(_percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 70) + _rewardAmount3, 30);
+      + _percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 30)
+      + _percentOf(
+        _percentOf(_percentOf(_rewardAmount1, 60) + _rewardAmount2, 70) + _rewardAmount3, 30
+      );
     assertLteWithinOnePercent(uniStaker.earned(_depositor), _depositorExpectedEarnings);
   }
 
@@ -2573,8 +2585,14 @@ contract Earned is UniStakerRewardsTest {
     //   being earned are the remaining 10% of the first reward notification, plus the second
     //   reward notification
     uint256 _depositor2ExpectedEarnings = _percentOf(_percentOf(_rewardAmount1, 20), 50)
-      + _percentOf(_percentOf(_percentOf(_rewardAmount1, 35) + _rewardAmount2, 20), 50) + _percentOf(_percentOf(_percentOf(_rewardAmount1, 28) + _percentOf(_rewardAmount2, 80) + _rewardAmount3, 20), 50);
-	  // 28 is 7 percent minus 35, because 35/7
+      + _percentOf(_percentOf(_percentOf(_rewardAmount1, 35) + _rewardAmount2, 20), 50)
+      + _percentOf(
+        _percentOf(
+          _percentOf(_rewardAmount1, 28) + _percentOf(_rewardAmount2, 80) + _rewardAmount3, 20
+        ),
+        50
+      );
+    // 28 is 7 percent minus 35, because 35/7
 
     // // The first depositor earns the same amount as the second depositor, since they had the same
     // // stake and thus split the rewards during the period where both were staking. But the first
@@ -2629,7 +2647,10 @@ contract Earned is UniStakerRewardsTest {
     // their stake. It is the first reward for a quarter of the duration, plus the remaining 10% of
     // the first reward, plus the second reward, for a fifth of the duration.
     uint256 _combinedPhaseExpectedTotalRewards = _percentOf(_rewardAmount1, 20)
-      + _percentOf(_percentOf(_rewardAmount1, 35) + _rewardAmount2, 20) + _percentOf(_percentOf(_rewardAmount1, 28) + _percentOf(_rewardAmount2, 80) + _rewardAmount3, 20);
+      + _percentOf(_percentOf(_rewardAmount1, 35) + _rewardAmount2, 20)
+      + _percentOf(
+        _percentOf(_rewardAmount1, 28) + _percentOf(_rewardAmount2, 80) + _rewardAmount3, 20
+      );
 
     // The second depositor should earn a share of the combined phase reward scaled by their
     // portion of the total stake.
@@ -2645,7 +2666,6 @@ contract Earned is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.earned(_depositor1), _depositor1ExpectedEarnings);
     assertLteWithinOnePercent(uniStaker.earned(_depositor2), _depositor2ExpectedEarnings);
   }
-
 }
 
 contract ClaimReward is UniStakerRewardsTest {
