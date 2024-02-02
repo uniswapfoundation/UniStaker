@@ -1966,7 +1966,7 @@ contract Earned is UniStakerRewardsTest {
     // Time moves forward with no rewards
     _jumpAheadByPercentOfRewardDuration(_noRewardsSkip);
 
-    // Send new rewards
+    // Send new rewards, which should have no impact on the amount earned until time elapses
     _mintTransferAndNotifyReward(_rewardAmount);
 
     // The user should have earned all the rewards
@@ -2036,7 +2036,7 @@ contract Earned is UniStakerRewardsTest {
     // Skip ahead with no rewards
     _jumpAheadByPercentOfRewardDuration(_noRewardsSkip);
 
-    // Send new rewards
+    // Send new rewards, which should have no impact on the amount earned until time elapses
     _mintTransferAndNotifyReward(_rewardAmount);
 
     // The beneficiaries should have earned all the rewards for the first duration
