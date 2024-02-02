@@ -2055,6 +2055,7 @@ contract Earned is UniStakerRewardsTest {
     uint256 _rewardAmount,
     uint256 _durationPercent
   ) public {
+    vm.assume(_depositor != address(uniStaker));
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
@@ -2092,6 +2093,7 @@ contract Earned is UniStakerRewardsTest {
     uint256 _rewardAmount,
     uint256 _durationPercent
   ) public {
+    vm.assume(_depositor != address(uniStaker));
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
@@ -2199,6 +2201,7 @@ contract Earned is UniStakerRewardsTest {
     uint256 _rewardAmount
   ) public {
     vm.assume(_depositor1 != _depositor2);
+    vm.assume(_depositor1 != address(uniStaker) && _depositor2 != address(uniStaker));
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
@@ -2240,6 +2243,7 @@ contract Earned is UniStakerRewardsTest {
     uint256 _rewardAmount
   ) public {
     vm.assume(_depositor1 != _depositor2);
+    vm.assume(_depositor1 != address(uniStaker) && _depositor2 != address(uniStaker));
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
