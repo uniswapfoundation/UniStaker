@@ -7,6 +7,11 @@ pragma solidity ^0.8.23;
 /// @dev Stripped down and renamed from:
 /// https://github.com/Uniswap/v3-core/blob/d8b1c635c275d2a9450bd6a78f3fa2484fef73eb/contracts/interfaces/IUniswapV3Factory.sol
 interface IUniswapV3FactoryOwnerActions {
+  /// @notice Returns the current owner of the factory
+  /// @dev Can be changed by the current owner via setOwner
+  /// @return The address of the factory owner
+  function owner() external view returns (address);
+
   /// @notice Updates the owner of the factory
   /// @dev Must be called by the current owner
   /// @param _owner The new owner of the factory
