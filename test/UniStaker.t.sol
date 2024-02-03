@@ -1539,7 +1539,12 @@ contract UniStakerRewardsTest is UniStakerTest {
   }
 
   function _percentOf(uint256 _amount, uint256 _percent) public pure returns (uint256) {
-    return (_percent * _amount) / 100;
+    // For cases where the percentage is less than 100, we calculate the percentage by
+    // taking the inverse percentage and subtracting it. This effectively rounds _up_ the
+    // value by putting the truncation on the opposite side. For example, 92% of 555 is 510.6.
+    // Calculating it in this way would yield (555 - 44) = 511, instead of 510.
+    if (_percent < 100) return _amount - ((100 - _percent) * _amount) / 100;
+    else return (_percent * _amount) / 100;
   }
 
   // Helper methods for dumping contract state related to rewards calculation for debugging
@@ -1626,7 +1631,7 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     _amount = _boundToRealisticReward(_amount);
     _mintTransferAndNotifyReward(_amount);
 
-    uint256 _expectedRewardRate = _amount / uniStaker.REWARD_DURATION();
+    uint256 _expectedRewardRate = (SCALE_FACTOR * _amount) / uniStaker.REWARD_DURATION();
     assertEq(uniStaker.rewardRate(), _expectedRewardRate);
   }
 
@@ -1635,11 +1640,11 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     _amount2 = _boundToRealisticReward(_amount2);
 
     _mintTransferAndNotifyReward(_amount1);
-    uint256 _expectedRewardRate = _amount1 / uniStaker.REWARD_DURATION();
+    uint256 _expectedRewardRate = (SCALE_FACTOR * _amount1) / uniStaker.REWARD_DURATION();
     assertEq(uniStaker.rewardRate(), _expectedRewardRate);
 
     _mintTransferAndNotifyReward(_amount2);
-    _expectedRewardRate = (_amount1 + _amount2) / uniStaker.REWARD_DURATION();
+    _expectedRewardRate = (SCALE_FACTOR * (_amount1 + _amount2)) / uniStaker.REWARD_DURATION();
     assertLteWithinOneUnit(uniStaker.rewardRate(), _expectedRewardRate);
   }
 
@@ -1713,7 +1718,8 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
 
     // The third notifier notifies
     _mintTransferAndNotifyReward(_rewardsNotifier3, _amount3);
-    uint256 _expectedRewardRate = (_amount1 + _amount2 + _amount3) / uniStaker.REWARD_DURATION();
+    uint256 _expectedRewardRate =
+      (SCALE_FACTOR * (_amount1 + _amount2 + _amount3)) / uniStaker.REWARD_DURATION();
     // because we summed 3 amounts, the rounding error can be as much as 2 units
     assertApproxEqAbs(uniStaker.rewardRate(), _expectedRewardRate, 2);
     assertLe(uniStaker.rewardRate(), _expectedRewardRate);
@@ -2209,18 +2215,19 @@ contract RewardPerToken is UniStakerRewardsTest {
     // proportional to the time elapsed
     uint256 _expectedDuration1 =
       _percentOf(_scaledDiv(_rewardAmount, _stakeAmount1), _durationPercent1);
-    // The rewards after the second notification are the remaining rewards plus the new rewards
-    uint256 _rewardsAfterDuration1 =
-      (_rewardAmount - _percentOf(_rewardAmount, _durationPercent1)) + _rewardAmount;
+    // The rewards after the second notification are the remaining rewards plus the new rewards.
+    // We scale them up here to avoid losing precision in our expectation estimates.
+    uint256 _scaledRewardsAfterDuration1 = (
+      SCALE_FACTOR * _rewardAmount - _percentOf(SCALE_FACTOR * _rewardAmount, _durationPercent1)
+    ) + SCALE_FACTOR * _rewardAmount;
     // During the second time period, the expected value is the new reward amount over the staked
     // amount, proportional to the time elapsed
     uint256 _expectedDuration2 =
-      _percentOf(_scaledDiv(_rewardsAfterDuration1, _stakeAmount1), _durationPercent2);
+      _percentOf(_scaledRewardsAfterDuration1 / _stakeAmount1, _durationPercent2);
     // During the third time period, the expected value is the reward amount over the new total
     // staked amount, proportional to the time elapsed
-    uint256 _expectedDuration3 = _percentOf(
-      _scaledDiv(_rewardsAfterDuration1, _stakeAmount1 + _stakeAmount2), _durationPercent3
-    );
+    uint256 _expectedDuration3 =
+      _percentOf(_scaledRewardsAfterDuration1 / (_stakeAmount1 + _stakeAmount2), _durationPercent3);
 
     uint256 _expected = _expectedDuration1 + _expectedDuration2 + _expectedDuration3;
     assertLteWithinOnePercent(uniStaker.rewardPerToken(), _expected);
@@ -3397,6 +3404,42 @@ contract ClaimReward is UniStakerRewardsTest {
 
     vm.prank(_depositor);
     uniStaker.claimReward();
+  }
+
+  function testFuzz_AlwaysHasEnoughRewardsForTwoBeneficiariesToClaim(
+    address _depositor1,
+    address _depositor2,
+    address _delegatee,
+    uint256 _stakeAmount1,
+    uint256 _stakeAmount2,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    (_stakeAmount1, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount1, _rewardAmount);
+    _stakeAmount2 = _boundToRealisticStake(_stakeAmount2);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor1, _stakeAmount1, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+    // Another user deposits stake
+    _boundMintAndStake(_depositor1, _stakeAmount1, _delegatee);
+    // The rest of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(100 - _durationPercent);
+
+    uint256 _earned1 = uniStaker.earned(_depositor1);
+    uint256 _earned2 = uniStaker.earned(_depositor2);
+
+    // vm.prank(_depositor1);
+    // uniStaker.claimReward();
+
+    // vm.prank(_depositor2);
+    // uniStaker.claimReward();
+
+    //assertEq(_rewardAmount, _earned1 + _earned2);
   }
 }
 

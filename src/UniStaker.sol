@@ -198,8 +198,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   function rewardPerToken() public view returns (uint256) {
     if (totalSupply == 0) return rewardPerTokenStored;
 
-    return rewardPerTokenStored
-      + (rewardRate * (lastTimeRewardApplicable() - updatedAt) * SCALE_FACTOR) / totalSupply;
+    return
+      rewardPerTokenStored + (rewardRate * (lastTimeRewardApplicable() - updatedAt)) / totalSupply;
   }
 
   /// @notice Live value of the unclaimed rewards earned by a given beneficiary account. It is the
@@ -358,16 +358,14 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     rewardPerTokenStored = rewardPerToken();
 
     if (block.timestamp >= finishAt) {
-      // TODO: Can we move the scale factor into the rewardRate? This should reduce rounding errors
-      // introduced here when truncating on this division.
-      rewardRate = _amount / REWARD_DURATION;
+      rewardRate = (_amount * SCALE_FACTOR) / REWARD_DURATION;
     } else {
       uint256 remainingRewards = rewardRate * (finishAt - block.timestamp);
-      rewardRate = (remainingRewards + _amount) / REWARD_DURATION;
+      rewardRate = (remainingRewards + _amount * SCALE_FACTOR) / REWARD_DURATION;
     }
 
-    if (rewardRate == 0) revert UniStaker__InvalidRewardRate();
-    if ((rewardRate * REWARD_DURATION) > REWARDS_TOKEN.balanceOf(address(this))) {
+    if ((rewardRate / SCALE_FACTOR) == 0) revert UniStaker__InvalidRewardRate();
+    if ((rewardRate * REWARD_DURATION) > (REWARDS_TOKEN.balanceOf(address(this)) * SCALE_FACTOR)) {
       revert UniStaker__InsufficientRewardBalance();
     }
 
