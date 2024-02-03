@@ -253,7 +253,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _updateReward(deposit.beneficiary);
+    _checkpointGlobalRewards();
+    _checkpointRewards(deposit.beneficiary);
 
     DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
     _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
@@ -300,10 +301,12 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _updateReward(deposit.beneficiary);
+    _checkpointGlobalRewards();
+
+    _checkpointRewards(deposit.beneficiary);
     earningPower[deposit.beneficiary] -= deposit.balance;
 
-    _updateReward(_newBeneficiary);
+    _checkpointRewards(_newBeneficiary);
     emit BeneficiaryAltered(_depositId, deposit.beneficiary, _newBeneficiary);
     deposit.beneficiary = _newBeneficiary;
     earningPower[_newBeneficiary] += deposit.balance;
@@ -318,7 +321,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _updateReward(deposit.beneficiary);
+    _checkpointGlobalRewards();
+    _checkpointRewards(deposit.beneficiary);
 
     deposit.balance -= _amount; // overflow prevents withdrawing more than balance
     totalSupply -= _amount;
@@ -331,7 +335,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @notice Claim reward tokens the message sender has earned as a stake beneficiary. Tokens are
   /// sent to the message sender.
   function claimReward() external nonReentrant {
-    _updateReward(msg.sender);
+    _checkpointGlobalRewards();
+    _checkpointRewards(msg.sender);
 
     uint256 _rewards = rewards[msg.sender];
     if (_rewards == 0) return;
@@ -349,7 +354,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     if (!isRewardsNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
     // TODO: It looks like the only thing we actually need to do here is update the
     // rewardPerTokenStored value. Can we save gas by doing only that?
-    _updateReward(address(0));
+    _checkpointGlobalRewards();
 
     if (block.timestamp >= finishAt) {
       // TODO: Can we move the scale factor into the rewardRate? This should reduce rounding errors
@@ -413,7 +418,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     _revertIfAddressZero(_delegatee);
     _revertIfAddressZero(_beneficiary);
 
-    _updateReward(_beneficiary);
+    _checkpointGlobalRewards();
+    _checkpointRewards(_beneficiary);
 
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
     _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
@@ -433,17 +439,18 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     emit DelegateeAltered(_depositId, address(0), _delegatee);
   }
 
-  // Extract into two methods global + user
-  /// @notice Checkpoints the global reward parameters, then checkpoints the reward parameters for
-  /// the beneficiary specified.
-  /// @param _beneficiary The account for which reward parameters will be checkpointed.
-  /// @dev If address zero is sent as the beneficiary, only the global checkpoint is executed.
-  function _updateReward(address _beneficiary) internal {
+  /// @notice Checkpoints the global reward per token accumulator.
+  function _checkpointGlobalRewards() internal {
     rewardPerTokenStored = rewardPerToken();
     updatedAt = lastTimeRewardApplicable();
+  }
 
-    if (_beneficiary == address(0)) return;
-
+  /// @notice Checkpoints the unclaimed rewards and reward per token accumulator of a given
+  /// beneficiary account.
+  /// @param _beneficiary The account for which reward parameters will be checkpointed.
+  /// @dev This is a sensitive internal helper method that must only be called after global rewards
+  /// accumulator has been checkpointed.
+  function _checkpointRewards(address _beneficiary) internal {
     rewards[_beneficiary] = earned(_beneficiary);
     userRewardPerTokenPaid[_beneficiary] = rewardPerTokenStored;
   }
