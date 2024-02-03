@@ -352,9 +352,10 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @param _amount Quantity of reward tokens the staking contract is being notified of.
   function notifyRewardsAmount(uint256 _amount) external {
     if (!isRewardsNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
-    // TODO: It looks like the only thing we actually need to do here is update the
-    // rewardPerTokenStored value. Can we save gas by doing only that?
-    _checkpointGlobalRewards();
+
+    // We checkpoint the accumulator without updating the timestamp at which it was updated, because
+    // that second operation will be done at the end of the method.
+    rewardPerTokenStored = rewardPerToken();
 
     if (block.timestamp >= finishAt) {
       // TODO: Can we move the scale factor into the rewardRate? This should reduce rounding errors
