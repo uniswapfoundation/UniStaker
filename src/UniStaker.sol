@@ -138,19 +138,19 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// denominated in reward tokens per second.
   uint256 public rewardRate;
 
-  /// @notice Snapshot value of the global rewards per token accumulator.
+  /// @notice Checkpoint value of the global rewards per token accumulator.
   uint256 public rewardPerTokenStored;
 
-  /// @notice Snapshot of the reward per token accumulator on a per account basis. It represents
+  /// @notice Checkpoint of the reward per token accumulator on a per account basis. It represents
   /// the value of the global accumulator at the last time a given account's rewards were
   /// calculated and stored. The difference between the global value and this value can be
   /// used to calculate the interim rewards earned by given account.
   mapping(address account => uint256) public userRewardPerTokenPaid;
 
-  /// @notice Snapshot of the unclaimed rewards earned by a given account. This value is stored any
-  /// time an action is taken that impacts the rate at which rewards are earned by a given
+  /// @notice Checkpoint of the unclaimed rewards earned by a given account. This value is stored
+  /// any time an action is taken that impacts the rate at which rewards are earned by a given
   /// beneficiary account. Total unclaimed rewards for an account are thus this value plus all
-  /// rewards earned after this snapshot was taken. This value is reset to zero when a beneficiary
+  /// rewards earned after this checkpoint was taken. This value is reset to zero when a beneficiary
   /// account claims their earned rewards.
   mapping(address account => uint256 amount) public rewards;
 
@@ -193,7 +193,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   }
 
   /// @notice Live value of the global reward per token accumulator. It is the sum of the last
-  /// snapshot value with the live calculation of the value that has accumulated in the interim.
+  /// checkpoint value with the live calculation of the value that has accumulated in the interim.
   /// This number should monotonically increase over time as more rewards are distributed.
   function rewardPerToken() public view returns (uint256) {
     if (totalSupply == 0) return rewardPerTokenStored;
@@ -203,7 +203,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   }
 
   /// @notice Live value of the unclaimed rewards earned by a given beneficiary account. It is the
-  /// sum of the last snapshot value of their unclaimed rewards with the live calculation of the
+  /// sum of the last checkpoint value of their unclaimed rewards with the live calculation of the
   /// rewards that have accumulated for this account in the interim. This value can only increase,
   /// until it is reset to zero once the beneficiary account claims their unearned rewards.
   function earned(address _beneficiary) public view returns (uint256) {
@@ -433,12 +433,11 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     emit DelegateeAltered(_depositId, address(0), _delegatee);
   }
 
-  // TODO: rename snapshotReward?
   // Extract into two methods global + user
-  /// @notice Snapshots the global reward parameters, then snapshots the reward parameters for the
-  /// beneficiary specified.
-  /// @param _beneficiary The account for which reward parameters will be snapshotted.
-  /// @dev If address zero is sent as the beneficiary, only the global snapshot is executed.
+  /// @notice Checkpoints the global reward parameters, then checkpoints the reward parameters for
+  /// the beneficiary specified.
+  /// @param _beneficiary The account for which reward parameters will be checkpointed.
+  /// @dev If address zero is sent as the beneficiary, only the global checkpoint is executed.
   function _updateReward(address _beneficiary) internal {
     rewardPerTokenStored = rewardPerToken();
     updatedAt = lastTimeRewardApplicable();
