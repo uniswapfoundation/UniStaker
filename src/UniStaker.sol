@@ -54,7 +54,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @notice Emitted when a beneficiary claims their earned reward.
   event RewardClaimed(address indexed beneficiary, uint256 amount);
 
-  /// @notice Emitted when UniStaker is notified of a new reward.
+  /// @notice Emitted when this contract is notified of a new reward.
   event RewardNotified(uint256 amount);
 
   /// @notice Emitted when the admin address is set.
