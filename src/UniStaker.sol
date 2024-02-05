@@ -30,7 +30,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   type DepositIdentifier is uint256;
 
   /// @notice Emitted when a depositor initially deposits a stake or deposits additional stake for
-  /// the same deposit.
+  /// an existing deposit.
   event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 totalDeposited);
 
   /// @notice Emitted when a depositor withdraws a portion or all of the their stake for a given
