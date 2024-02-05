@@ -35,9 +35,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
   /// @notice Emitted when a depositor withdraws a portion or all of the their stake for a given
   /// deposit.
-  event StakeWithdrawn(
-    DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance
-  );
+  event StakeWithdrawn(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
 
   /// @notice Emitted when a deposit's delegatee is changed.
   event DelegateeAltered(
