@@ -29,20 +29,38 @@ import {Multicall} from "openzeppelin/utils/Multicall.sol";
 contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   type DepositIdentifier is uint256;
 
-  event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 totalDeposited);
-  event StakeWithdrawn(
-    DepositIdentifier indexed depositId, uint256 amount, uint256 remainingAmount
-  );
+  /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
+  /// already exists.
+  event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
+
+  /// @notice Emitted when a depositor withdraws some portion of stake from a given deposit.
+  event StakeWithdrawn(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
+
+  /// @notice Emitted when a deposit's delegatee is changed.
   event DelegateeAltered(
     DepositIdentifier indexed depositId, address oldDelegatee, address newDelegatee
   );
+
+  /// @notice Emitted when a deposit's beneficiary is changed.
   event BeneficiaryAltered(
     DepositIdentifier indexed depositId,
     address indexed oldBeneficiary,
     address indexed newBeneficiary
   );
+
+  /// @notice Emitted when a beneficiary claims their earned reward.
   event RewardClaimed(address indexed beneficiary, uint256 amount);
-  event RewardNotified(uint256 amount);
+
+  /// @notice Emitted when this contract is notified of a new reward.
+  event RewardNotified(uint256 amount, address notifier);
+
+  /// @notice Emitted when the admin address is set.
+  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
+
+  /// @notice Emitted when a rewards notifier address is enabled or disabled.
+  event RewardsNotifierSet(address indexed account, bool isEnabled);
+
+  /// @notice Emitted when a surrogate contract is deployed.
   event SurrogateDeployed(address indexed delegatee, address indexed surrogate);
 
   /// @notice Thrown when an account attempts a call for which it lacks appropriate permission.
@@ -60,12 +78,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
   /// @notice Thrown if a caller attempts to specify address zero for certain designated addresses.
   error UniStaker__InvalidAddress();
-
-  /// @notice Emitted when the admin address is set.
-  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
-
-  /// @notice Emitted when a rewards notifier address is enabled or disabled.
-  event RewardsNotifierSet(address indexed account, bool isEnabled);
 
   /// @notice Metadata associated with a discrete staking deposit.
   /// @param balance The deposit's staked balance.
@@ -353,7 +365,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
     finishAt = block.timestamp + REWARD_DURATION;
     updatedAt = block.timestamp;
-    emit RewardNotified(_amount);
+    emit RewardNotified(_amount, msg.sender);
   }
 
   /// @notice Internal method which finds the existing surrogate contract—or deploys a new one if
