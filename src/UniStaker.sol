@@ -44,7 +44,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     DepositIdentifier indexed depositId, address oldDelegatee, address newDelegatee
   );
 
-  /// @notice Emitted when a deposits beneficiary is changed.
+  /// @notice Emitted when a deposit's beneficiary is changed.
   event BeneficiaryAltered(
     DepositIdentifier indexed depositId,
     address indexed oldBeneficiary,
