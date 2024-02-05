@@ -23,7 +23,7 @@ contract Deploy is Script, DeployInput {
     // Deploy a new owner for the V3 factory owner actions contract.
     V3FactoryOwner v3FactoryOwner = new V3FactoryOwner(
       UNISWAP_GOVERNOR_TIMELOCK,
-      IUniswapV3FactoryOwnerActions(UNISWAP_V3_OWNER_FACTORY_ADDRESS),
+      IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS),
       IERC20(PAYOUT_TOKEN_ADDRESS),
       PAYOUT_AMOUNT,
       INotifiableRewardReceiver(uniStaker)
