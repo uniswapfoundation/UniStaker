@@ -31,12 +31,12 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
   /// @notice Emitted when a depositor initially deposits a stake or deposits additional stake for
   /// an existing deposit.
-  event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 totalDeposited);
+  event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
 
   /// @notice Emitted when a depositor withdraws a portion or all of the their stake for a given
   /// deposit.
   event StakeWithdrawn(
-    DepositIdentifier indexed depositId, uint256 amount, uint256 remainingAmount
+    DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance
   );
 
   /// @notice Emitted when a deposit's delegatee is changed.
@@ -55,7 +55,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   event RewardClaimed(address indexed beneficiary, uint256 amount);
 
   /// @notice Emitted when this contract is notified of a new reward.
-  event RewardNotified(uint256 amount);
+  event RewardNotified(uint256 amount, address caller);
 
   /// @notice Emitted when the admin address is set.
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
@@ -368,7 +368,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
     finishAt = block.timestamp + REWARD_DURATION;
     updatedAt = block.timestamp;
-    emit RewardNotified(_amount);
+    emit RewardNotified(_amount, msg.sender);
   }
 
   /// @notice Internal method which finds the existing surrogate contract—or deploys a new one if

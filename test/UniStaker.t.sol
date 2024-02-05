@@ -1715,7 +1715,7 @@ contract NotifyRewardsAmount is UniStakerRewardsTest {
     rewardToken.transfer(address(uniStaker), _amount);
 
     vm.expectEmit();
-    emit UniStaker.RewardNotified(_amount);
+    emit UniStaker.RewardNotified(_amount, rewardsNotifier);
 
     uniStaker.notifyRewardsAmount(_amount);
     vm.stopPrank();
