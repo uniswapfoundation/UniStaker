@@ -29,11 +29,11 @@ import {Multicall} from "openzeppelin/utils/Multicall.sol";
 contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   type DepositIdentifier is uint256;
 
-  /// @notice Emitted when a stake is deposited by a depositor, either to a newd deposit or one that
+  /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
   /// already exists.
   event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
 
-  /// @notice Emitted when a depositor withdraws some portion of  stake from a given deposit.
+  /// @notice Emitted when a depositor withdraws some portion of stake from a given deposit.
   event StakeWithdrawn(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
 
   /// @notice Emitted when a deposit's delegatee is changed.
@@ -52,7 +52,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   event RewardClaimed(address indexed beneficiary, uint256 amount);
 
   /// @notice Emitted when this contract is notified of a new reward.
-  event RewardNotified(uint256 amount, address notified);
+  event RewardNotified(uint256 amount, address notifier);
 
   /// @notice Emitted when the admin address is set.
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
