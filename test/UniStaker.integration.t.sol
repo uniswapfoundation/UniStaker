@@ -3,7 +3,7 @@ pragma solidity 0.8.23;
 
 import {Vm, Test, console2} from "forge-std/Test.sol";
 import {Deploy} from "script/Deploy.s.sol";
-import {DeployInput} from "script/DeployInput.s.sol";
+import {DeployInput} from "script/DeployInput.sol";
 
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
 import {UniStaker} from "src/UniStaker.sol";

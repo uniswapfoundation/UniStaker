@@ -6,7 +6,7 @@ pragma solidity 0.8.23;
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Script} from "forge-std/Script.sol";
 
-import {DeployInput} from "script/DeployInput.s.sol";
+import {DeployInput} from "script/DeployInput.sol";
 import {UniStaker} from "src/UniStaker.sol";
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
 import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
