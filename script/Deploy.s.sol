@@ -14,7 +14,7 @@ import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceive
 import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
 
 contract Deploy is Script, DeployInput {
-		  uint256 deployerPrivateKey;
+  uint256 deployerPrivateKey;
 
   function setUp() public {
     deployerPrivateKey = vm.envOr(
@@ -26,8 +26,11 @@ contract Deploy is Script, DeployInput {
   function run() public returns (V3FactoryOwner, UniStaker) {
     vm.startBroadcast(deployerPrivateKey);
     // Deploy the staking contract
-    UniStaker uniStaker =
-      new UniStaker(IERC20(PAYOUT_TOKEN_ADDRESS), IERC20Delegates(STAKE_TOKEN_ADDRESS), vm.addr(deployerPrivateKey));
+    UniStaker uniStaker = new UniStaker(
+      IERC20(PAYOUT_TOKEN_ADDRESS),
+      IERC20Delegates(STAKE_TOKEN_ADDRESS),
+      vm.addr(deployerPrivateKey)
+    );
 
     // Deploy a new owner for the V3 factory owner actions contract.
     V3FactoryOwner v3FactoryOwner = new V3FactoryOwner(

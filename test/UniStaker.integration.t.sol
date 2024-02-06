@@ -15,7 +15,7 @@ contract DeployScriptTest is Test, DeployInput {
 
   function testFork_DeployStakingContracts() public {
     Deploy _deployScript = new Deploy();
-	_deployScript.setUp();
+    _deployScript.setUp();
     (V3FactoryOwner v3FactoryOwner, UniStaker uniStaker) = _deployScript.run();
 
     assertEq(v3FactoryOwner.admin(), UNISWAP_GOVERNOR_TIMELOCK);
