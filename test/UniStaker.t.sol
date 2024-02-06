@@ -3339,6 +3339,39 @@ contract UnclaimedRewards is UniStakerRewardsTest {
     assertLteWithinOnePercent(uniStaker.unclaimedRewards(_depositor1), _depositor1ExpectedEarnings);
     assertLteWithinOnePercent(uniStaker.unclaimedRewards(_depositor2), _depositor2ExpectedEarnings);
   }
+
+  function testFuzz_CalculatesEarningsThatAreLessThanOrEqualToRewardsReceived(
+    address _depositor1,
+    address _depositor2,
+    address _delegatee,
+    uint256 _stakeAmount1,
+    uint256 _stakeAmount2,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    vm.assume(_depositor1 != _depositor2);
+
+    (_stakeAmount1, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount1, _rewardAmount);
+    _stakeAmount2 = _boundToRealisticStake(_stakeAmount2);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor1, _stakeAmount1, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+    // Another user deposits stake
+    _boundMintAndStake(_depositor2, _stakeAmount2, _delegatee);
+    // The rest of the duration elapses
+    _jumpAheadByPercentOfRewardDuration(100 - _durationPercent);
+
+    uint256 _earned1 = uniStaker.unclaimedRewards(_depositor1);
+    uint256 _earned2 = uniStaker.unclaimedRewards(_depositor2);
+
+    // Rewards earned by depositors should always at most equal to the actual reward amount
+    assertLteWithinOnePercent(_earned1 + _earned2, _rewardAmount);
+  }
 }
 
 contract ClaimReward is UniStakerRewardsTest {
@@ -3416,42 +3449,6 @@ contract ClaimReward is UniStakerRewardsTest {
 
     vm.prank(_depositor);
     uniStaker.claimReward();
-  }
-
-  function testFuzz_AlwaysHasEnoughRewardsForTwoBeneficiariesToClaim(
-    address _depositor1,
-    address _depositor2,
-    address _delegatee,
-    uint256 _stakeAmount1,
-    uint256 _stakeAmount2,
-    uint256 _rewardAmount,
-    uint256 _durationPercent
-  ) public {
-    (_stakeAmount1, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount1, _rewardAmount);
-    _stakeAmount2 = _boundToRealisticStake(_stakeAmount2);
-    _durationPercent = bound(_durationPercent, 0, 100);
-
-    // A user deposits staking tokens
-    _boundMintAndStake(_depositor1, _stakeAmount1, _delegatee);
-    // The contract is notified of a reward
-    _mintTransferAndNotifyReward(_rewardAmount);
-    // A portion of the duration passes
-    _jumpAheadByPercentOfRewardDuration(_durationPercent);
-    // Another user deposits stake
-    _boundMintAndStake(_depositor1, _stakeAmount1, _delegatee);
-    // The rest of the duration elapses
-    _jumpAheadByPercentOfRewardDuration(100 - _durationPercent);
-
-    uint256 _earned1 = uniStaker.unclaimedRewards(_depositor1);
-    uint256 _earned2 = uniStaker.unclaimedRewards(_depositor2);
-
-    // vm.prank(_depositor1);
-    // uniStaker.claimReward();
-
-    // vm.prank(_depositor2);
-    // uniStaker.claimReward();
-
-    //assertEq(_rewardAmount, _earned1 + _earned2);
   }
 }
 
