@@ -31,7 +31,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
   /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
   /// already exists.
-  event StakeDeposited(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
+  event StakeDeposited(
+    address owner, DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance
+  );
 
   /// @notice Emitted when a depositor withdraws some portion of stake from a given deposit.
   event StakeWithdrawn(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
@@ -260,7 +262,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     totalDeposits[msg.sender] += _amount;
     earningPower[deposit.beneficiary] += _amount;
     deposit.balance += _amount;
-    emit StakeDeposited(_depositId, _amount, deposit.balance);
+    emit StakeDeposited(msg.sender, _depositId, _amount, deposit.balance);
   }
 
   /// @notice For an existing deposit, change the address to which governance voting power is
@@ -426,7 +428,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
       delegatee: _delegatee,
       beneficiary: _beneficiary
     });
-    emit StakeDeposited(_depositId, _amount, _amount);
+    emit StakeDeposited(msg.sender, _depositId, _amount, _amount);
     emit BeneficiaryAltered(_depositId, address(0), _beneficiary);
     emit DelegateeAltered(_depositId, address(0), _delegatee);
   }

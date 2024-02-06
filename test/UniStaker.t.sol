@@ -182,6 +182,7 @@ contract Stake is UniStakerTest {
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
     emit UniStaker.StakeDeposited(
+      _depositor,
       UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
       _amount,
       _amount
@@ -255,6 +256,7 @@ contract Stake is UniStakerTest {
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
     emit UniStaker.StakeDeposited(
+      _depositor,
       UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
       _amount,
       _amount
@@ -811,7 +813,9 @@ contract StakeMore is UniStakerTest {
     uniStaker.stakeMore(_depositId, _addAmount);
 
     vm.expectEmit();
-    emit UniStaker.StakeDeposited(_depositId, _addAmount, _depositAmount + _totalAdditionalStake);
+    emit UniStaker.StakeDeposited(
+      _depositor, _depositId, _addAmount, _depositAmount + _totalAdditionalStake
+    );
 
     uniStaker.stakeMore(_depositId, _addAmount);
     vm.stopPrank();
