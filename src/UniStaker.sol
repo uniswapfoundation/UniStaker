@@ -104,7 +104,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
 
   /// @notice Scale factor used in reward calculation math to reduce rounding errors caused by
   /// truncation during division.
-  uint256 public constant SCALE_FACTOR = 1e24;
+  uint256 public constant SCALE_FACTOR = 1e36;
 
   /// @dev Unique identifier that will be used for the next deposit.
   DepositIdentifier private nextDepositId;
