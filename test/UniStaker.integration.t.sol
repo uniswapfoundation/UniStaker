@@ -36,14 +36,13 @@ contract DeployScriptTest is Test, DeployInput {
 }
 
 contract Propose is ProposalTest {
-  // After setup, skip to passed proposal
-  // with a passed proposal verify it looks right
   function testFuzz_CorrectlyPassAndExecutreProposal() public {
     _passAndQueueUniswapProposal();
     _executeProposal();
-    // assert the owner of the v3 factory is correct
+
     IUniswapV3FactoryOwnerActions factory =
       IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS);
+
     IUniswapPool wbtcWethPool = IUniswapPool(WBTC_WETH_3000_POOL);
     (,,,,, uint8 wbtcWethFeeProtocol,) = wbtcWethPool.slot0();
 
