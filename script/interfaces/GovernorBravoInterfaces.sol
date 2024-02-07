@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.23;
 
-// This interface was created using cast interface. The contract can be found at 
+// This interface was created using cast interface. The contract can be found at
 // https://etherscan.io/address/0x53a328f4086d7c0f1fa19e594c9b842125263026#code#F2#L182
 
 interface GovernorBravoDelegate {

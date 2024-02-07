@@ -10,7 +10,7 @@ contract Propose is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR =
     GovernorBravoDelegate(0x408ED6354d4973f66138C91495F2f2FCbd8724C3); // Mainnet governor
   // TODO placeholder delegate: jessewldn
-  address PROPOSER = 0xe7925D190aea9279400cD9a005E33CEB9389Cc2b; 
+  address PROPOSER = 0xe7925D190aea9279400cD9a005E33CEB9389Cc2b;
 
   function propose(address _v3FactoryOwner) internal returns (uint256 _proposalId) {
     address[] memory _targets = new address[](4);
@@ -53,7 +53,9 @@ contract Propose is Script, DeployInput {
     );
   }
 
-  /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this script to create a proposal to change the Uniswap v3 factory owner and enable protocol fees for select pools.
+  /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this
+  /// script to create a proposal to change the Uniswap v3 factory owner and enable protocol fees
+  /// for select pools.
   function run(address v3FactoryOwner) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.
     // When running as a script, broadcast will fail if the key is not correct.
