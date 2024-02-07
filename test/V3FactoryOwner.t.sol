@@ -240,7 +240,7 @@ contract ClaimFees is V3FactoryOwnerTest {
     factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
     vm.stopPrank();
 
-    assertEq(rewardReceiver.lastParam__notifyRewardsAmount_amount(), _payoutAmount);
+    assertEq(rewardReceiver.lastParam__notifyRewardAmount_amount(), _payoutAmount);
   }
 
   function testFuzz_CallsPoolCollectProtocolMethodWithRecipientAndAmountsRequestedAndReturnsForwardedFeeAmountsFromPool(
