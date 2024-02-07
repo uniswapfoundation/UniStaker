@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.23;
 
-import {Vm, Test, console2} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
 
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
 import {UniStaker} from "src/UniStaker.sol";
 import {ProposalTest} from "test/helpers/ProposalTest.sol";
-import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
 import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
 import {IUniswapPool} from "test/helpers/interfaces/IUniswapPool.sol";
 
