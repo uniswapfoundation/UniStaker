@@ -147,11 +147,11 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// used to calculate the interim rewards earned by given account.
   mapping(address account => uint256) public beneficiaryRewardPerTokenCheckpoint;
 
-  /// @notice Checkpoint of the unclaimed rewards earned by a given account. This value is stored
-  /// any time an action is taken that impacts the rate at which rewards are earned by a given
-  /// beneficiary account. Total unclaimed rewards for an account are thus this value plus all
-  /// rewards earned after this checkpoint was taken. This value is reset to zero when a beneficiary
-  /// account claims their earned rewards.
+  /// @notice Checkpoint of the unclaimed rewards earned by a given beneficiary. This value is
+  /// stored any time an action is taken that specifically impacts the rate at which rewards are
+  /// earned by a given beneficiary account. Total unclaimed rewards for an account are thus this
+  /// value plus all rewards earned after this checkpoint was taken. This value is reset to zero
+  /// when a beneficiary account claims their earned rewards.
   mapping(address account => uint256 amount) public unclaimedRewardCheckpoint;
 
   /// @notice Maps addresses to whether they are authorized to call `notifyRewardAmount`.
