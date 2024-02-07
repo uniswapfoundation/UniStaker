@@ -47,10 +47,10 @@ contract Propose is ProposalTest {
     (,,,,, uint8 wbtcWethFeeProtocol,) = wbtcWethPool.slot0();
 
     IUniswapPool daiWethPool = IUniswapPool(DAI_WETH_3000_POOL);
-    (,,,,, uint8 daiWethFeeProtocol,) = wbtcWethPool.slot0();
+    (,,,,, uint8 daiWethFeeProtocol,) = daiWethPool.slot0();
 
     IUniswapPool daiUsdcPool = IUniswapPool(DAI_USDC_100_POOL);
-    (,,,,, uint8 daiUsdcFeeProtocol,) = wbtcWethPool.slot0();
+    (,,,,, uint8 daiUsdcFeeProtocol,) = daiUsdcPool.slot0();
 
     assertEq(factory.owner(), address(v3FactoryOwner));
 

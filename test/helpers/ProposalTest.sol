@@ -77,22 +77,22 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     vm.warp(_uniswapProposalEta() + 1); // jump past the eta timestamp
   }
 
-  function _delegatesVoteOnUniswapProposal(bool _support) internal {
+  function _delegatesVoteOnUniswapProposal(uint8 _support) internal {
     for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
-      governor.castVote(uniswapProposalId, 1);
+      governor.castVote(uniswapProposalId, _support);
     }
   }
 
   function _passUniswapProposal() internal {
     _jumpToActiveUniswapProposal();
-    _delegatesVoteOnUniswapProposal(true);
+    _delegatesVoteOnUniswapProposal(1);
     _jumpToUniswapVoteComplete();
   }
 
   function _defeatUniswapProposal() internal {
     _jumpToActiveUniswapProposal();
-    _delegatesVoteOnUniswapProposal(false);
+    _delegatesVoteOnUniswapProposal(0);
     _jumpToUniswapVoteComplete();
   }
 
