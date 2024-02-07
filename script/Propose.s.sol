@@ -6,15 +6,11 @@ import {Script} from "forge-std/Script.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
-// 1. Get Uniswap governor
-// 2. Pick suitable proposer
-// 3. Switch v3 factory owner
-// 4. Then enable fee amount and set protocol fee for a specific pool
 contract Propose is Script, DeployInput {
-  // TODO: Make a more specific interface
   GovernorBravoDelegate constant GOVERNOR =
     GovernorBravoDelegate(0x408ED6354d4973f66138C91495F2f2FCbd8724C3); // Mainnet governor
-  address PROPOSER = 0xe7925D190aea9279400cD9a005E33CEB9389Cc2b; // TODO: jessewldn
+  // TODO placeholder delegate: jessewldn
+  address PROPOSER = 0xe7925D190aea9279400cD9a005E33CEB9389Cc2b; 
 
   function propose(address _v3FactoryOwner) internal returns (uint256 _proposalId) {
     address[] memory _targets = new address[](4);
@@ -27,10 +23,6 @@ contract Propose is Script, DeployInput {
     _signatures[0] = "setOwner(address)";
     _calldatas[0] = abi.encode(address(_v3FactoryOwner));
 
-    // Set fees for the couple pools
-    // dai-usdc
-    // dai-weth
-    // wbtc-weth
     _targets[1] = _v3FactoryOwner;
     _values[1] = 0;
     _signatures[1] = "setFeeProtocol(address,uint8,uint8)";
@@ -61,7 +53,7 @@ contract Propose is Script, DeployInput {
     );
   }
 
-  /// @dev After the new Governor is deployed on mainnet, this can move from a parameter to a const
+  /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this script to create a proposal to change the Uniswap v3 factory owner and enable protocol fees for select pools.
   function run(address v3FactoryOwner) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.
     // When running as a script, broadcast will fail if the key is not correct.
