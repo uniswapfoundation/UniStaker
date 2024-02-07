@@ -13,7 +13,6 @@ import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.s
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
 import {UniStaker} from "src/UniStaker.sol";
 
-// 1. help vote on proposal and move it forward
 abstract contract ProposalTest is Test, DeployInput, Constants {
   //----------------- State and Setup ----------- //
   uint256 uniswapProposalId;
@@ -23,13 +22,10 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   GovernorBravoDelegate governor = GovernorBravoDelegate(UNISWAP_GOVERNOR_ADDRESS);
 
   function setUp() public virtual {
-    //initialProposalCount = governor.proposalCount();
-
-    uint256 _forkBlock = 17_927_962;
-    vm.createSelectFork(vm.rpcUrl("mainnet"), _forkBlock);
+    vm.createSelectFork(vm.rpcUrl("mainnet"));
 
     address[] memory _delegates = new address[](6);
-    // Taken from https://www.tally.xyz/gov/pooltogether/delegates?sort=voting_power_desc.
+    // Taken from https://www.tally.xyz/gov/uniswap/delegates.
     // If you update these delegates (including updating order in the array),
     // make sure to update any tests that reference specific delegates. The last delegate is the
     // proposer and lower in the voting power than the above link.
@@ -45,12 +41,8 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     }
 
     Propose _proposeScript = new Propose();
-    // We override the deployer to use an alternate delegate, because in this context,
-    // lonser.eth already has a live proposal
-    //_proposeScript.overrideProposerForTests(0xFFb032E27b70DfAD518753BAAa77040F64df9840);
-    //
-    // Pass in deployed factory owner
     Deploy _deployScript = new Deploy();
+
     _deployScript.setUp();
     (v3FactoryOwner, uniStaker) = _deployScript.run();
     uniswapProposalId = _proposeScript.run(address(v3FactoryOwner));
@@ -112,9 +104,5 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   function _executeProposal() internal {
     _jumpPastProposalEta();
     governor.execute(uniswapProposalId);
-  }
-
-  function assertEq(IGovernor.ProposalState _actual, IGovernor.ProposalState _expected) internal {
-    assertEq(uint8(_actual), uint8(_expected));
   }
 }
