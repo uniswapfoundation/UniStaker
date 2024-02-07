@@ -10,5 +10,5 @@ pragma solidity ^0.8.23;
 interface INotifiableRewardReceiver {
   /// @notice Method called to notify a reward receiver it has received a reward.
   /// @param _amount The amount of reward.
-  function notifyRewardsAmount(uint256 _amount) external;
+  function notifyRewardAmount(uint256 _amount) external;
 }

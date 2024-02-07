@@ -4,9 +4,9 @@ pragma solidity 0.8.23;
 import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
 
 contract MockRewardReceiver is INotifiableRewardReceiver {
-  uint256 public lastParam__notifyRewardsAmount_amount;
+  uint256 public lastParam__notifyRewardAmount_amount;
 
-  function notifyRewardsAmount(uint256 _amount) external {
-    lastParam__notifyRewardsAmount_amount = _amount;
+  function notifyRewardAmount(uint256 _amount) external {
+    lastParam__notifyRewardAmount_amount = _amount;
   }
 }

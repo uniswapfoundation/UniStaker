@@ -59,8 +59,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @notice Emitted when the admin address is set.
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
 
-  /// @notice Emitted when a rewards notifier address is enabled or disabled.
-  event RewardsNotifierSet(address indexed account, bool isEnabled);
+  /// @notice Emitted when a reward notifier address is enabled or disabled.
+  event RewardNotifierSet(address indexed account, bool isEnabled);
 
   /// @notice Emitted when a surrogate contract is deployed.
   event SurrogateDeployed(address indexed delegatee, address indexed surrogate);
@@ -94,7 +94,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   }
 
   /// @notice ERC20 token in which rewards are denominated and distributed.
-  IERC20 public immutable REWARDS_TOKEN;
+  IERC20 public immutable REWARD_TOKEN;
 
   /// @notice Delegable governance token which users stake to earn rewards.
   IERC20Delegates public immutable STAKE_TOKEN;
@@ -109,7 +109,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @dev Unique identifier that will be used for the next deposit.
   DepositIdentifier private nextDepositId;
 
-  /// @notice Permissioned actor that can enable/disable `rewardsNotifier` addresses.
+  /// @notice Permissioned actor that can enable/disable `rewardNotifier` addresses.
   address public admin;
 
   /// @notice Global amount currently staked across all deposits.
@@ -129,7 +129,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   mapping(address delegatee => DelegationSurrogate surrogate) public surrogates;
 
   /// @notice Time at which rewards distribution will complete if there are no new rewards.
-  uint256 public rewardsEndTime;
+  uint256 public rewardEndTime;
 
   /// @notice Last time at which the global rewards accumulator was updated.
   uint256 public lastCheckpointTime;
@@ -138,7 +138,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// denominated in scaled reward tokens per second, using the SCALE_FACTOR.
   uint256 public scaledRewardRate;
 
-  /// @notice Checkpoint value of the global rewards per token accumulator.
+  /// @notice Checkpoint value of the global reward per token accumulator.
   uint256 public rewardPerTokenAccumulatedCheckpoint;
 
   /// @notice Checkpoint of the reward per token accumulator on a per account basis. It represents
@@ -152,16 +152,16 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// beneficiary account. Total unclaimed rewards for an account are thus this value plus all
   /// rewards earned after this checkpoint was taken. This value is reset to zero when a beneficiary
   /// account claims their earned rewards.
-  mapping(address account => uint256 amount) public unclaimedRewardsCheckpoint;
+  mapping(address account => uint256 amount) public unclaimedRewardCheckpoint;
 
-  /// @notice Maps addresses to whether they are authorized to call `notifyRewardsAmount`.
-  mapping(address rewardsNotifier => bool) public isRewardsNotifier;
+  /// @notice Maps addresses to whether they are authorized to call `notifyRewardAmount`.
+  mapping(address rewardNotifier => bool) public isRewardNotifier;
 
-  /// @param _rewardsToken ERC20 token in which rewards will be denominated.
+  /// @param _rewardToken ERC20 token in which rewards will be denominated.
   /// @param _stakeToken Delegable governance token which users will stake to earn rewards.
-  /// @param _admin Address which will have permission to manage rewardsNotifiers.
-  constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken, address _admin) {
-    REWARDS_TOKEN = _rewardsToken;
+  /// @param _admin Address which will have permission to manage rewardNotifiers.
+  constructor(IERC20 _rewardToken, IERC20Delegates _stakeToken, address _admin) {
+    REWARD_TOKEN = _rewardToken;
     STAKE_TOKEN = _stakeToken;
     _setAdmin(_admin);
   }
@@ -174,21 +174,21 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     _setAdmin(_newAdmin);
   }
 
-  /// @notice Enables or disables a rewards notifier address.
-  /// @param _rewardsNotifier Address of the rewards notifier.
-  /// @param _isEnabled `true` to enable the `_rewardsNotifier`, or `false` to disable.
+  /// @notice Enables or disables a reward notifier address.
+  /// @param _rewardNotifier Address of the reward notifier.
+  /// @param _isEnabled `true` to enable the `_rewardNotifier`, or `false` to disable.
   /// @dev Caller must be the current admin.
-  function setRewardsNotifier(address _rewardsNotifier, bool _isEnabled) external {
+  function setRewardNotifier(address _rewardNotifier, bool _isEnabled) external {
     _revertIfNotAdmin();
-    isRewardsNotifier[_rewardsNotifier] = _isEnabled;
-    emit RewardsNotifierSet(_rewardsNotifier, _isEnabled);
+    isRewardNotifier[_rewardNotifier] = _isEnabled;
+    emit RewardNotifierSet(_rewardNotifier, _isEnabled);
   }
 
   /// @notice Timestamp representing the last time at which rewards have been distributed, which is
   /// either the current timestamp (because rewards are still actively being streamed) or the time
   /// at which the reward duration ended (because all rewards to date have already been streamed).
-  function lastTimeRewardsDistributed() public view returns (uint256) {
-    if (rewardsEndTime <= block.timestamp) return rewardsEndTime;
+  function lastTimeRewardDistributed() public view returns (uint256) {
+    if (rewardEndTime <= block.timestamp) return rewardEndTime;
     else return block.timestamp;
   }
 
@@ -199,15 +199,15 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     if (totalStaked == 0) return rewardPerTokenAccumulatedCheckpoint;
 
     return rewardPerTokenAccumulatedCheckpoint
-      + (scaledRewardRate * (lastTimeRewardsDistributed() - lastCheckpointTime)) / totalStaked;
+      + (scaledRewardRate * (lastTimeRewardDistributed() - lastCheckpointTime)) / totalStaked;
   }
 
   /// @notice Live value of the unclaimed rewards earned by a given beneficiary account. It is the
   /// sum of the last checkpoint value of their unclaimed rewards with the live calculation of the
   /// rewards that have accumulated for this account in the interim. This value can only increase,
   /// until it is reset to zero once the beneficiary account claims their unearned rewards.
-  function unclaimedRewards(address _beneficiary) public view returns (uint256) {
-    return unclaimedRewardsCheckpoint[_beneficiary]
+  function unclaimedReward(address _beneficiary) public view returns (uint256) {
+    return unclaimedRewardCheckpoint[_beneficiary]
       + (
         earningPower[_beneficiary]
           * (rewardPerTokenAccumulated() - beneficiaryRewardPerTokenCheckpoint[_beneficiary])
@@ -255,8 +255,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _checkpointGlobalRewards();
-    _checkpointRewards(deposit.beneficiary);
+    _checkpointGlobalReward();
+    _checkpointReward(deposit.beneficiary);
 
     DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
     _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
@@ -303,12 +303,12 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _checkpointGlobalRewards();
+    _checkpointGlobalReward();
 
-    _checkpointRewards(deposit.beneficiary);
+    _checkpointReward(deposit.beneficiary);
     earningPower[deposit.beneficiary] -= deposit.balance;
 
-    _checkpointRewards(_newBeneficiary);
+    _checkpointReward(_newBeneficiary);
     emit BeneficiaryAltered(_depositId, deposit.beneficiary, _newBeneficiary);
     deposit.beneficiary = _newBeneficiary;
     earningPower[_newBeneficiary] += deposit.balance;
@@ -323,8 +323,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit);
 
-    _checkpointGlobalRewards();
-    _checkpointRewards(deposit.beneficiary);
+    _checkpointGlobalReward();
+    _checkpointReward(deposit.beneficiary);
 
     deposit.balance -= _amount; // overflow prevents withdrawing more than balance
     totalStaked -= _amount;
@@ -337,41 +337,41 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @notice Claim reward tokens the message sender has earned as a stake beneficiary. Tokens are
   /// sent to the message sender.
   function claimReward() external nonReentrant {
-    _checkpointGlobalRewards();
-    _checkpointRewards(msg.sender);
+    _checkpointGlobalReward();
+    _checkpointReward(msg.sender);
 
-    uint256 _rewards = unclaimedRewardsCheckpoint[msg.sender];
-    if (_rewards == 0) return;
-    unclaimedRewardsCheckpoint[msg.sender] = 0;
-    emit RewardClaimed(msg.sender, _rewards);
+    uint256 _reward = unclaimedRewardCheckpoint[msg.sender];
+    if (_reward == 0) return;
+    unclaimedRewardCheckpoint[msg.sender] = 0;
+    emit RewardClaimed(msg.sender, _reward);
 
-    SafeERC20.safeTransfer(REWARDS_TOKEN, msg.sender, _rewards);
+    SafeERC20.safeTransfer(REWARD_TOKEN, msg.sender, _reward);
   }
 
   /// @notice Called by an authorized rewards notifier to alert the staking contract that a new
   /// reward has been transferred to it. Note the reward must already have been transferred to this
   /// staking contract before the rewards notifier calls this method.
   /// @param _amount Quantity of reward tokens the staking contract is being notified of.
-  function notifyRewardsAmount(uint256 _amount) external {
-    if (!isRewardsNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
+  function notifyRewardAmount(uint256 _amount) external {
+    if (!isRewardNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
 
     // We checkpoint the accumulator without updating the timestamp at which it was updated, because
     // that second operation will be done at the end of the method.
     rewardPerTokenAccumulatedCheckpoint = rewardPerTokenAccumulated();
 
-    if (block.timestamp >= rewardsEndTime) {
+    if (block.timestamp >= rewardEndTime) {
       scaledRewardRate = (_amount * SCALE_FACTOR) / REWARD_DURATION;
     } else {
-      uint256 remainingRewards = scaledRewardRate * (rewardsEndTime - block.timestamp);
-      scaledRewardRate = (remainingRewards + _amount * SCALE_FACTOR) / REWARD_DURATION;
+      uint256 _remainingReward = scaledRewardRate * (rewardEndTime - block.timestamp);
+      scaledRewardRate = (_remainingReward + _amount * SCALE_FACTOR) / REWARD_DURATION;
     }
 
     if ((scaledRewardRate / SCALE_FACTOR) == 0) revert UniStaker__InvalidRewardRate();
     if (
-      (scaledRewardRate * REWARD_DURATION) > (REWARDS_TOKEN.balanceOf(address(this)) * SCALE_FACTOR)
+      (scaledRewardRate * REWARD_DURATION) > (REWARD_TOKEN.balanceOf(address(this)) * SCALE_FACTOR)
     ) revert UniStaker__InsufficientRewardBalance();
 
-    rewardsEndTime = block.timestamp + REWARD_DURATION;
+    rewardEndTime = block.timestamp + REWARD_DURATION;
     lastCheckpointTime = block.timestamp;
     emit RewardNotified(_amount, msg.sender);
   }
@@ -419,8 +419,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     _revertIfAddressZero(_delegatee);
     _revertIfAddressZero(_beneficiary);
 
-    _checkpointGlobalRewards();
-    _checkpointRewards(_beneficiary);
+    _checkpointGlobalReward();
+    _checkpointReward(_beneficiary);
 
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
     _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
@@ -441,9 +441,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   }
 
   /// @notice Checkpoints the global reward per token accumulator.
-  function _checkpointGlobalRewards() internal {
+  function _checkpointGlobalReward() internal {
     rewardPerTokenAccumulatedCheckpoint = rewardPerTokenAccumulated();
-    lastCheckpointTime = lastTimeRewardsDistributed();
+    lastCheckpointTime = lastTimeRewardDistributed();
   }
 
   /// @notice Checkpoints the unclaimed rewards and reward per token accumulator of a given
@@ -452,8 +452,8 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @dev This is a sensitive internal helper method that must only be called after global rewards
   /// accumulator has been checkpointed. It assumes the global `rewardPerTokenCheckpoint` is up to
   /// date.
-  function _checkpointRewards(address _beneficiary) internal {
-    unclaimedRewardsCheckpoint[_beneficiary] = unclaimedRewards(_beneficiary);
+  function _checkpointReward(address _beneficiary) internal {
+    unclaimedRewardCheckpoint[_beneficiary] = unclaimedReward(_beneficiary);
     beneficiaryRewardPerTokenCheckpoint[_beneficiary] = rewardPerTokenAccumulatedCheckpoint;
   }
 

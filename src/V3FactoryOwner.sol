@@ -19,7 +19,7 @@ import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 /// collect protocol fees from a pool. This method is instead exposed publicly by this contract's
 /// `claimFees` method. That method collects fees from the protocol as long as the caller pays for
 /// them with a transfer of a designated amount of a designated token. That payout is forwarded
-/// to a rewards receiver.
+/// to a reward receiver.
 ///
 /// In the context of the broader system, it is expected that this contract's REWARD_RECEIVER is
 /// a deployment of the `UniStaker` contract. It is expected the admin of this contract will be the
@@ -164,7 +164,7 @@ contract V3FactoryOwner {
     uint128 _amount1Requested
   ) external returns (uint128, uint128) {
     PAYOUT_TOKEN.safeTransferFrom(msg.sender, address(REWARD_RECEIVER), PAYOUT_AMOUNT);
-    REWARD_RECEIVER.notifyRewardsAmount(PAYOUT_AMOUNT);
+    REWARD_RECEIVER.notifyRewardAmount(PAYOUT_AMOUNT);
     (uint128 _amount0, uint128 _amount1) =
       _pool.collectProtocol(_recipient, _amount0Requested, _amount1Requested);
 

@@ -41,8 +41,8 @@ contract Deploy is Script, DeployInput {
       INotifiableRewardReceiver(uniStaker)
     );
 
-    // Enable the v3FactoryOwner as a UniStaker rewards notifier
-    uniStaker.setRewardsNotifier(address(v3FactoryOwner), true);
+    // Enable the v3FactoryOwner as a UniStaker reward notifier
+    uniStaker.setRewardNotifier(address(v3FactoryOwner), true);
 
     // Change UniStaker admin from `msg.sender` to the Governor timelock
     uniStaker.setAdmin(UNISWAP_GOVERNOR_TIMELOCK);
