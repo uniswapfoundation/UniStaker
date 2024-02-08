@@ -557,7 +557,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     if (!isRewardNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
 
     // We checkpoint the accumulator without updating the timestamp at which it was updated, because
-    // that second operation will be done at the end of the method.
+    // that second operation will be done after updating the reward rate.
     rewardPerTokenAccumulatedCheckpoint = rewardPerTokenAccumulated();
 
     if (block.timestamp >= rewardEndTime) {
@@ -567,13 +567,14 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
       scaledRewardRate = (_remainingReward + _amount * SCALE_FACTOR) / REWARD_DURATION;
     }
 
+    rewardEndTime = block.timestamp + REWARD_DURATION;
+    lastCheckpointTime = block.timestamp;
+
     if ((scaledRewardRate / SCALE_FACTOR) == 0) revert UniStaker__InvalidRewardRate();
     if (
       (scaledRewardRate * REWARD_DURATION) > (REWARD_TOKEN.balanceOf(address(this)) * SCALE_FACTOR)
     ) revert UniStaker__InsufficientRewardBalance();
 
-    rewardEndTime = block.timestamp + REWARD_DURATION;
-    lastCheckpointTime = block.timestamp;
     emit RewardNotified(_amount, msg.sender);
   }
 
