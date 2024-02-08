@@ -30,26 +30,6 @@ import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 contract V3FactoryOwner {
   using SafeERC20 for IERC20;
 
-  /// @notice The address that can call privileged methods, including passthrough owner functions
-  /// to the factory itself.
-  address public admin;
-
-  /// @notice The instance of the Uniswap v3 factory contract which this contract will own.
-  IUniswapV3FactoryOwnerActions public immutable FACTORY;
-
-  /// @notice The ERC-20 token which must be used to pay for fees when claiming pool fees.
-  IERC20 public immutable PAYOUT_TOKEN;
-
-  /// @notice The raw amount of the payout token which is paid by a user when claiming pool fees.
-  uint256 public immutable PAYOUT_AMOUNT;
-
-  /// @notice The contract that receives the payout and is notified via method call, when pool fees
-  /// are claimed.
-  INotifiableRewardReceiver public immutable REWARD_RECEIVER;
-
-  /// @notice Emitted when the existing admin designates a new address as the admin.
-  event AdminSet(address indexed oldAmin, address indexed newAdmin);
-
   /// @notice Emitted when a user pays the payout and claims the fees from a given v3 pool.
   /// @param pool The v3 pool from which protocol fees were claimed.
   /// @param caller The address which executes the call to claim the fees.
@@ -64,6 +44,9 @@ contract V3FactoryOwner {
     uint256 amount1
   );
 
+  /// @notice Emitted when the existing admin designates a new address as the admin.
+  event AdminSet(address indexed oldAmin, address indexed newAdmin);
+
   /// @notice Thrown when an unauthorized account calls a privileged function.
   error V3FactoryOwner__Unauthorized();
 
@@ -72,6 +55,23 @@ contract V3FactoryOwner {
 
   /// @notice Thrown when the fees collected from a pool are less than the caller expects.
   error V3FactoryOwner__InsufficientFeesCollected();
+
+  /// @notice The instance of the Uniswap v3 factory contract which this contract will own.
+  IUniswapV3FactoryOwnerActions public immutable FACTORY;
+
+  /// @notice The ERC-20 token which must be used to pay for fees when claiming pool fees.
+  IERC20 public immutable PAYOUT_TOKEN;
+
+  /// @notice The raw amount of the payout token which is paid by a user when claiming pool fees.
+  uint256 public immutable PAYOUT_AMOUNT;
+
+  /// @notice The contract that receives the payout and is notified via method call, when pool fees
+  /// are claimed.
+  INotifiableRewardReceiver public immutable REWARD_RECEIVER;
+
+  /// @notice The address that can call privileged methods, including passthrough owner functions
+  /// to the factory itself.
+  address public admin;
 
   /// @param _admin The initial admin address for this deployment. Cannot be zero address.
   /// @param _factory The v3 factory instance for which this deployment will serve as owner.
