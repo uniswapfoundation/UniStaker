@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.23;
 
-import {Vm, Test, console2} from "forge-std/Test.sol";
+import {Vm, Test, stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
 import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
 import {ERC20VotesMock} from "test/mocks/MockERC20Votes.sol";
@@ -14,6 +14,12 @@ contract UniStakerTest is Test {
   address rewardNotifier;
   UniStakerHarness uniStaker;
   uint256 SCALE_FACTOR;
+  // console2.log(uint(_domainSeparatorV4()))
+  bytes32 EIP712_DOMAIN_SEPARATOR = bytes32(
+    uint256(
+      108_300_748_413_663_721_746_865_897_746_851_483_791_898_864_552_448_882_835_473_754_343_054_398_579_494
+    )
+  );
 
   event RewardNotifierSet(address indexed account, bool isEnabled);
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
@@ -127,6 +133,32 @@ contract UniStakerTest is Test {
   // Scales first param and divides it by second
   function _scaledDiv(uint256 _x, uint256 _y) public view returns (uint256) {
     return (_x * SCALE_FACTOR) / _y;
+  }
+
+  function _sign(uint256 _privateKey, bytes32 _messageHash) internal pure returns (bytes memory) {
+    (uint8 _v, bytes32 _r, bytes32 _s) = vm.sign(_privateKey, _messageHash);
+    return abi.encodePacked(_r, _s, _v);
+  }
+
+  function _modifyMessage(bytes32 _message, uint256 _index) internal pure returns (bytes32) {
+    _index = bound(_index, 0, 31);
+    bytes memory _messageBytes = abi.encodePacked(_message);
+    // zero out the byte at the given index, or set it to 1 if it's already zero
+    if (_messageBytes[_index] == 0) _messageBytes[_index] = bytes1(uint8(1));
+    else _messageBytes[_index] = bytes1(uint8(0));
+    return bytes32(_messageBytes);
+  }
+
+  function _modifySignature(bytes memory _signature, uint256 _index)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    _index = bound(_index, 0, _signature.length - 1);
+    // zero out the byte at the given index, or set it to 1 if it's already zero
+    if (_signature[_index] == 0) _signature[_index] = bytes1(uint8(1));
+    else _signature[_index] = bytes1(uint8(0));
+    return _signature;
   }
 }
 
@@ -674,6 +706,155 @@ contract Stake is UniStakerTest {
   }
 }
 
+contract StakeOnBehalf is UniStakerTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_StakesOnBehalfOfAnotherAccount(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _mintGovToken(_depositor, _depositAmount);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _depositAmount);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.STAKE_TYPEHASH(),
+        _depositAmount,
+        _delegatee,
+        _beneficiary,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    UniStaker.DepositIdentifier _depositId =
+      uniStaker.stakeOnBehalf(_depositAmount, _delegatee, _beneficiary, _depositor, _signature);
+
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.balance, _depositAmount);
+    assertEq(_deposit.owner, _depositor);
+    assertEq(_deposit.delegatee, _delegatee);
+    assertEq(_deposit.beneficiary, _beneficiary);
+  }
+
+  function testFuzz_RevertIf_WrongNonceIsUsed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce,
+    uint256 _suppliedNonce
+  ) public {
+    vm.assume(_currentNonce != _suppliedNonce);
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _mintGovToken(_depositor, _depositAmount);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _depositAmount);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.STAKE_TYPEHASH(),
+        _depositAmount,
+        _delegatee,
+        _beneficiary,
+        _depositor,
+        _suppliedNonce
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.stakeOnBehalf(_depositAmount, _delegatee, _beneficiary, _depositor, _signature);
+  }
+
+  function testFuzz_RevertIf_InvalidSignatureIsPassed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce,
+    uint256 _randomSeed
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _mintGovToken(_depositor, _depositAmount);
+
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _depositAmount);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.STAKE_TYPEHASH(),
+        _depositAmount,
+        _delegatee,
+        _beneficiary,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+
+    // Here we use `_randomSeed` as an arbitrary source of randomness to replace a legit parameter
+    // with an attack-like one.
+    if (_randomSeed % 5 == 0) {
+      _depositAmount = uint256(keccak256(abi.encode(_depositAmount)));
+    } else if (_randomSeed % 5 == 1) {
+      _delegatee = address(uint160(uint256(keccak256(abi.encode(_delegatee)))));
+    } else if (_randomSeed % 5 == 2) {
+      _depositor = address(uint160(uint256(keccak256(abi.encode(_depositor)))));
+    } else if (_randomSeed % 5 == 3) {
+      _messageHash = _modifyMessage(_messageHash, uint256(keccak256(abi.encode(_randomSeed))));
+    }
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+    if (_randomSeed % 5 == 4) _signature = _modifySignature(_signature, _randomSeed);
+
+    vm.prank(_sender);
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    uniStaker.stakeOnBehalf(_depositAmount, _delegatee, _beneficiary, _depositor, _signature);
+  }
+}
+
 contract StakeMore is UniStakerTest {
   function testFuzz_TransfersStakeToTheExistingSurrogate(
     address _depositor,
@@ -871,6 +1052,201 @@ contract StakeMore is UniStakerTest {
   }
 }
 
+contract StakeMoreOnBehalf is UniStakerTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_StakeMoreOnBehalfOfDepositor(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _initialDepositAmount,
+    uint256 _stakeMoreAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_initialDepositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    _stakeMoreAmount = _boundToRealisticStake(_stakeMoreAmount);
+    _mintGovToken(_depositor, _stakeMoreAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _stakeMoreAmount);
+    vm.stopPrank();
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.STAKE_MORE_TYPEHASH(),
+        _depositId,
+        _stakeMoreAmount,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _signature);
+
+    _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.balance, _initialDepositAmount + _stakeMoreAmount);
+    assertEq(_deposit.owner, _depositor);
+    assertEq(_deposit.delegatee, _delegatee);
+    assertEq(_deposit.beneficiary, _beneficiary);
+  }
+
+  function testFuzz_RevertIf_WrongNonceIsUsed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _initialDepositAmount,
+    uint256 _stakeMoreAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce,
+    uint256 _suppliedNonce
+  ) public {
+    vm.assume(_currentNonce != _suppliedNonce);
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _initialDepositAmount = _boundMintAmount(_initialDepositAmount);
+    _mintGovToken(_depositor, _initialDepositAmount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_initialDepositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
+
+    _stakeMoreAmount = _boundToRealisticStake(_stakeMoreAmount);
+    _mintGovToken(_depositor, _stakeMoreAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _stakeMoreAmount);
+    vm.stopPrank();
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.STAKE_MORE_TYPEHASH(), _depositId, _stakeMoreAmount, _depositor, _suppliedNonce
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _signature);
+  }
+
+  function testFuzz_RevertIf_DepositorIsNotDepositOwner(
+    address _sender,
+    address _depositor,
+    address _notDepositor,
+    uint256 _initialDepositAmount,
+    uint256 _stakeMoreAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _depositor != _notDepositor
+    );
+    _initialDepositAmount = _boundMintAmount(_initialDepositAmount);
+    _mintGovToken(_depositor, _initialDepositAmount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_initialDepositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    vm.prank(_sender);
+    uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _notDepositor, "");
+  }
+
+  function testFuzz_RevertIf_InvalidSignatureIsPassed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _initialDepositAmount,
+    uint256 _stakeMoreAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _currentNonce,
+    uint256 _randomSeed
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _initialDepositAmount = _boundMintAmount(_initialDepositAmount);
+    _mintGovToken(_depositor, _initialDepositAmount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_initialDepositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
+
+    _stakeMoreAmount = _boundToRealisticStake(_stakeMoreAmount);
+    _mintGovToken(_depositor, _stakeMoreAmount);
+
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _stakeMoreAmount);
+    vm.stopPrank();
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.STAKE_MORE_TYPEHASH(),
+        _depositId,
+        _stakeMoreAmount,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+
+    // Here we use `_randomSeed` as an arbitrary source of randomness to replace a legit parameter
+    // with an attack-like one.
+    if (_randomSeed % 3 == 0) {
+      _stakeMoreAmount = uint256(keccak256(abi.encode(_stakeMoreAmount)));
+    } else if (_randomSeed % 3 == 1) {
+      _messageHash = _modifyMessage(_messageHash, uint256(keccak256(abi.encode(_randomSeed))));
+    }
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+    if (_randomSeed % 3 == 2) _signature = _modifySignature(_signature, _randomSeed);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _signature);
+  }
+}
+
 contract AlterDelegatee is UniStakerTest {
   function testFuzz_AllowsStakerToUpdateTheirDelegatee(
     address _depositor,
@@ -999,6 +1375,176 @@ contract AlterDelegatee is UniStakerTest {
   }
 }
 
+contract AlterDelegateeOnBehalf is UniStakerTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_AlterDelegateeOnBehalfOfDepositor(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newDelegatee,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _newDelegatee != address(0)
+    );
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.ALTER_DELEGATEE_TYPEHASH(),
+        _depositId,
+        _newDelegatee,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _signature);
+
+    _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.delegatee, _newDelegatee);
+  }
+
+  function testFuzz_RevertIf_WrongNonceIsUsed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newDelegatee,
+    uint256 _currentNonce,
+    uint256 _suppliedNonce
+  ) public {
+    vm.assume(_currentNonce != _suppliedNonce);
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _newDelegatee != address(0)
+    );
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.ALTER_DELEGATEE_TYPEHASH(), _depositId, _newDelegatee, _depositor, _suppliedNonce
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _signature);
+  }
+
+  function testFuzz_RevertIf_DepositorIsNotDepositOwner(
+    address _sender,
+    address _depositor,
+    address _notDepositor,
+    uint256 _amount,
+    address _delegatee,
+    address _newDelegatee,
+    address _beneficiary,
+    bytes memory _signature
+  ) public {
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _depositor != _notDepositor
+    );
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    vm.prank(_sender);
+    uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _notDepositor, _signature);
+  }
+
+  function testFuzz_RevertIf_InvalidSignatureIsPassed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newDelegatee,
+    uint256 _currentNonce,
+    uint256 _randomSeed
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.ALTER_DELEGATEE_TYPEHASH(),
+        _depositId,
+        _newDelegatee,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+
+    // Here we use `_randomSeed` as an arbitrary source of randomness to replace a legit parameter
+    // with an attack-like one.
+    if (_randomSeed % 3 == 0) {
+      _newDelegatee = address(uint160(uint256(keccak256(abi.encode(_newDelegatee)))));
+    } else if (_randomSeed % 3 == 1) {
+      _messageHash = _modifyMessage(_messageHash, uint256(keccak256(abi.encode(_randomSeed))));
+    }
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+    if (_randomSeed % 3 == 2) _signature = _modifySignature(_signature, _randomSeed);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _signature);
+  }
+}
+
 contract AlterBeneficiary is UniStakerTest {
   function testFuzz_AllowsStakerToUpdateTheirBeneficiary(
     address _depositor,
@@ -1120,6 +1666,180 @@ contract AlterBeneficiary is UniStakerTest {
     vm.prank(_depositor);
     vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
     uniStaker.alterBeneficiary(_depositId, address(0));
+  }
+}
+
+contract AlterBeneficiaryOnBehalf is UniStakerTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_AlterBeneficiaryOnBehalfOfDepositor(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newBeneficiary,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _newBeneficiary != address(0)
+    );
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.ALTER_BENEFICIARY_TYPEHASH(),
+        _depositId,
+        _newBeneficiary,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    uniStaker.alterBeneficiaryOnBehalf(_depositId, _newBeneficiary, _depositor, _signature);
+
+    _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.beneficiary, _newBeneficiary);
+  }
+
+  function testFuzz_RevertIf_WrongNonceIsUsed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newBeneficiary,
+    uint256 _currentNonce,
+    uint256 _suppliedNonce
+  ) public {
+    vm.assume(_currentNonce != _suppliedNonce);
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _newBeneficiary != address(0)
+    );
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.ALTER_BENEFICIARY_TYPEHASH(),
+        _depositId,
+        _newBeneficiary,
+        _depositor,
+        _suppliedNonce
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.alterBeneficiaryOnBehalf(_depositId, _newBeneficiary, _depositor, _signature);
+  }
+
+  function testFuzz_RevertIf_DepositorIsNotDepositOwner(
+    address _sender,
+    address _depositor,
+    address _notDepositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newBeneficiary,
+    bytes memory _signature
+  ) public {
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _depositor != _notDepositor
+    );
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    vm.prank(_sender);
+    uniStaker.alterBeneficiaryOnBehalf(_depositId, _newBeneficiary, _notDepositor, _signature);
+  }
+
+  function testFuzz_RevertIf_InvalidSignatureIsPassed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _newBeneficiary,
+    uint256 _currentNonce,
+    uint256 _randomSeed
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.ALTER_BENEFICIARY_TYPEHASH(),
+        _depositId,
+        _newBeneficiary,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+
+    // Here we use `_randomSeed` as an arbitrary source of randomness to replace a legit parameter
+    // with an attack-like one.
+    if (_randomSeed % 3 == 0) {
+      _newBeneficiary = address(uint160(uint256(keccak256(abi.encode(_newBeneficiary)))));
+    } else if (_randomSeed % 3 == 1) {
+      _messageHash = _modifyMessage(_messageHash, uint256(keccak256(abi.encode(_randomSeed))));
+    }
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+    if (_randomSeed % 3 == 2) _signature = _modifySignature(_signature, _randomSeed);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.alterBeneficiaryOnBehalf(_depositId, _newBeneficiary, _depositor, _signature);
   }
 }
 
@@ -1409,6 +2129,174 @@ contract Withdraw is UniStakerTest {
     vm.prank(_depositor);
     vm.expectRevert();
     uniStaker.withdraw(_depositId, _amount + _amountOver);
+  }
+}
+
+contract WithdrawOnBehalf is UniStakerTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_WithdrawOnBehalfOfDepositor(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _withdrawAmount,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    _withdrawAmount = bound(_withdrawAmount, 0, _depositAmount);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.WITHDRAW_TYPEHASH(),
+        _depositId,
+        _withdrawAmount,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _signature);
+
+    _deposit = _fetchDeposit(_depositId);
+
+    assertEq(_deposit.balance, _depositAmount - _withdrawAmount);
+  }
+
+  function testFuzz_RevertIf_WrongNonceIsUsed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _withdrawAmount,
+    uint256 _currentNonce,
+    uint256 _suppliedNonce
+  ) public {
+    vm.assume(_currentNonce != _suppliedNonce);
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _mintGovToken(_depositor, _depositAmount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.WITHDRAW_TYPEHASH(), _depositId, _withdrawAmount, _depositor, _suppliedNonce
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _signature);
+  }
+
+  function testFuzz_RevertIf_DepositorIsNotDepositOwner(
+    address _sender,
+    address _depositor,
+    address _notDepositor,
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _withdrawAmount,
+    bytes memory _signature
+  ) public {
+    vm.assume(
+      _delegatee != address(0) && _beneficiary != address(0) && _sender != address(0)
+        && _depositor != _notDepositor
+    );
+    _amount = _boundMintAmount(_amount);
+    _mintGovToken(_depositor, _amount);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+      )
+    );
+    vm.prank(_sender);
+    uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _notDepositor, _signature);
+  }
+
+  function testFuzz_RevertIf_InvalidSignatureIsPassed(
+    uint256 _depositorPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _delegatee,
+    address _beneficiary,
+    uint256 _withdrawAmount,
+    uint256 _currentNonce,
+    uint256 _randomSeed
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0) && _sender != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _mintGovToken(_depositor, _depositAmount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.WITHDRAW_TYPEHASH(),
+        _depositId,
+        _withdrawAmount,
+        _depositor,
+        uniStaker.nonces(_depositor)
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+
+    // Here we use `_randomSeed` as an arbitrary source of randomness to replace a legit parameter
+    // with an attack-like one.
+    if (_randomSeed % 3 == 0) {
+      _withdrawAmount = uint256(keccak256(abi.encode(_withdrawAmount)));
+    } else if (_randomSeed % 3 == 1) {
+      _messageHash = _modifyMessage(_messageHash, uint256(keccak256(abi.encode(_randomSeed))));
+    }
+    bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
+    if (_randomSeed % 3 == 2) _signature = _modifySignature(_signature, _randomSeed);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _signature);
   }
 }
 
@@ -3438,6 +4326,144 @@ contract ClaimReward is UniStakerRewardsTest {
 
     vm.prank(_depositor);
     uniStaker.claimReward();
+  }
+}
+
+contract ClaimRewardOnBehalf is UniStakerRewardsTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_ClaimRewardOnBehalfOfBeneficiary(
+    uint256 _beneficiaryPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    uint256 _durationPercent,
+    uint256 _rewardAmount,
+    address _delegatee,
+    address _depositor,
+    uint256 _currentNonce
+  ) public {
+    vm.assume(_delegatee != address(0) && _depositor != address(0) && _sender != address(0));
+    _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
+    address _beneficiary = vm.addr(_beneficiaryPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    uint256 _earned = uniStaker.unclaimedReward(_beneficiary);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_beneficiary).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message = keccak256(
+      abi.encode(uniStaker.CLAIM_REWARD_TYPEHASH(), _beneficiary, uniStaker.nonces(_beneficiary))
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    uniStaker.claimRewardOnBehalf(_beneficiary, _signature);
+
+    assertEq(rewardToken.balanceOf(_beneficiary), _earned);
+  }
+
+  function testFuzz_RevertIf_WrongNonceIsUsed(
+    uint256 _beneficiaryPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    uint256 _durationPercent,
+    uint256 _rewardAmount,
+    address _delegatee,
+    address _depositor,
+    uint256 _currentNonce,
+    uint256 _suppliedNonce
+  ) public {
+    vm.assume(_currentNonce != _suppliedNonce);
+    vm.assume(_delegatee != address(0) && _depositor != address(0) && _sender != address(0));
+    _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
+    address _beneficiary = vm.addr(_beneficiaryPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_beneficiary).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message =
+      keccak256(abi.encode(uniStaker.CLAIM_REWARD_TYPEHASH(), _beneficiary, _suppliedNonce));
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.claimRewardOnBehalf(_beneficiary, _signature);
+  }
+
+  function testFuzz_RevertIf_InvalidSignatureIsPassed(
+    uint256 _beneficiaryPrivateKey,
+    address _sender,
+    uint256 _depositAmount,
+    address _depositor,
+    address _delegatee,
+    uint256 _currentNonce,
+    uint256 _randomSeed
+  ) public {
+    vm.assume(_delegatee != address(0) && _depositor != address(0) && _sender != address(0));
+    _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
+    address _beneficiary = vm.addr(_beneficiaryPrivateKey);
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _mintGovToken(_depositor, _depositAmount);
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_beneficiary).checked_write(
+      _currentNonce
+    );
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+
+    bytes32 _message = keccak256(
+      abi.encode(uniStaker.CLAIM_REWARD_TYPEHASH(), _beneficiary, uniStaker.nonces(_beneficiary))
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+
+    // Here we use `_randomSeed` as an arbitrary source of randomness to replace a legit
+    // parameter with an attack-like one.
+    if (_randomSeed % 3 == 0) {
+      _beneficiary = address(uint160(uint256(keccak256(abi.encode(_beneficiary)))));
+    } else if (_randomSeed % 3 == 1) {
+      _messageHash = _modifyMessage(_messageHash, uint256(keccak256(abi.encode(_randomSeed))));
+    }
+    bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
+    if (_randomSeed % 3 == 2) _signature = _modifySignature(_signature, _randomSeed);
+
+    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.prank(_sender);
+    uniStaker.claimRewardOnBehalf(_beneficiary, _signature);
   }
 }
 

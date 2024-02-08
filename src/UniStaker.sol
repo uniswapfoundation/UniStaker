@@ -8,6 +8,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin/utils/ReentrancyGuard.sol";
 import {Multicall} from "openzeppelin/utils/Multicall.sol";
+import {Nonces} from "openzeppelin/utils/Nonces.sol";
+import {SignatureChecker} from "openzeppelin/utils/cryptography/SignatureChecker.sol";
+import {EIP712} from "openzeppelin/utils/cryptography/EIP712.sol";
 
 /// @title UniStaker
 /// @author ScopeLift
@@ -26,7 +29,7 @@ import {Multicall} from "openzeppelin/utils/Multicall.sol";
 /// received, the reward duration restarts, and the rate at which rewards are streamed is updated
 /// to include the newly received rewards along with any remaining rewards that have finished
 /// streaming since the last time a reward was received.
-contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
+contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP712, Nonces {
   type DepositIdentifier is uint256;
 
   /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
@@ -81,6 +84,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @notice Thrown if a caller attempts to specify address zero for certain designated addresses.
   error UniStaker__InvalidAddress();
 
+  /// @notice Thrown if a caller supplies an invalid signature to a method that requires one.
+  error UniStaker__InvalidSignature();
+
   /// @notice Metadata associated with a discrete staking deposit.
   /// @param balance The deposit's staked balance.
   /// @param owner The owner of this deposit.
@@ -92,6 +98,28 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     address delegatee;
     address beneficiary;
   }
+
+  /// @notice Type hash used when encoding data for `stakeOnBehalf` calls.
+  bytes32 public constant STAKE_TYPEHASH = keccak256(
+    "Stake(uint256 amount,address delegatee,address beneficiary,address depositor,uint256 nonce)"
+  );
+  /// @notice Type hash used when encoding data for `stakeMoreOnBehalf` calls.
+  bytes32 public constant STAKE_MORE_TYPEHASH =
+    keccak256("StakeMore(uint256 depositId,uint256 amount,address depositor,uint256 nonce)");
+  /// @notice Type hash used when encoding data for `alterDelegateeOnBehalf` calls.
+  bytes32 public constant ALTER_DELEGATEE_TYPEHASH = keccak256(
+    "AlterDelegatee(uint256 depositId,address newDelegatee,address depositor,uint256 nonce)"
+  );
+  /// @notice Type hash used when encoding data for `alterBeneficiaryOnBehalf` calls.
+  bytes32 public constant ALTER_BENEFICIARY_TYPEHASH = keccak256(
+    "AlterBeneficiary(uint256 depositId,address newBeneficiary,address depositor,uint256 nonce)"
+  );
+  /// @notice Type hash used when encoding data for `withdrawOnBehalf` calls.
+  bytes32 public constant WITHDRAW_TYPEHASH =
+    keccak256("Withdraw(uint256 depositId,uint256 amount,address depositor,uint256 nonce)");
+  /// @notice Type hash used when encoding data for `claimRewardOnBehalf` calls.
+  bytes32 public constant CLAIM_REWARD_TYPEHASH =
+    keccak256("ClaimReward(address beneficiary,uint256 nonce)");
 
   /// @notice ERC20 token in which rewards are denominated and distributed.
   IERC20 public immutable REWARD_TOKEN;
@@ -160,7 +188,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @param _rewardToken ERC20 token in which rewards will be denominated.
   /// @param _stakeToken Delegable governance token which users will stake to earn rewards.
   /// @param _admin Address which will have permission to manage rewardNotifiers.
-  constructor(IERC20 _rewardToken, IERC20Delegates _stakeToken, address _admin) {
+  constructor(IERC20 _rewardToken, IERC20Delegates _stakeToken, address _admin)
+    EIP712("UniStaker", "1")
+  {
     REWARD_TOKEN = _rewardToken;
     STAKE_TOKEN = _stakeToken;
     _setAdmin(_admin);
@@ -226,7 +256,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     nonReentrant
     returns (DepositIdentifier _depositId)
   {
-    _depositId = _stake(_amount, _delegatee, msg.sender);
+    _depositId = _stake(msg.sender, _amount, _delegatee, msg.sender);
   }
 
   /// @notice Method to stake tokens to a new deposit. The caller must pre-approve the staking
@@ -242,7 +272,38 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     nonReentrant
     returns (DepositIdentifier _depositId)
   {
-    _depositId = _stake(_amount, _delegatee, _beneficiary);
+    _depositId = _stake(msg.sender, _amount, _delegatee, _beneficiary);
+  }
+
+  /// @notice Stake tokens to a new deposit on behalf of a user, using a signature to validate the
+  /// user's intent. The caller must pre-approve the staking contract to spend at least the
+  /// would-be staked amount of the token.
+  /// @param _amount Quantity of the staking token to stake.
+  /// @param _delegatee Address to assign the governance voting weight of the staked tokens.
+  /// @param _beneficiary Address that will accrue rewards for this stake.
+  /// @param _depositor Address of the user on whose behalf this stake is being made.
+  /// @param _signature Signature of the user authorizing this stake.
+  /// @return _depositId Unique identifier for this deposit.
+  /// @dev Neither the delegatee nor the beneficiary may be the zero address.
+  function stakeOnBehalf(
+    uint256 _amount,
+    address _delegatee,
+    address _beneficiary,
+    address _depositor,
+    bytes memory _signature
+  ) external nonReentrant returns (DepositIdentifier _depositId) {
+    _revertIfSignatureIsNotValidNow(
+      _depositor,
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            STAKE_TYPEHASH, _amount, _delegatee, _beneficiary, _depositor, _useNonce(_depositor)
+          )
+        )
+      ),
+      _signature
+    );
+    _depositId = _stake(_depositor, _amount, _delegatee, _beneficiary);
   }
 
   /// @notice Add more staking tokens to an existing deposit. A staker should call this method when
@@ -253,19 +314,37 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @dev The message sender must be the owner of the deposit.
   function stakeMore(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
     Deposit storage deposit = deposits[_depositId];
-    _revertIfNotDepositOwner(deposit);
+    _revertIfNotDepositOwner(deposit, msg.sender);
+    _stakeMore(deposit, _depositId, _amount);
+  }
 
-    _checkpointGlobalReward();
-    _checkpointReward(deposit.beneficiary);
+  /// @notice Add more staking tokens to an existing deposit on behalf of a user, using a signature
+  /// to validate the user's intent. A staker should call this method when they have an existing
+  /// deposit, and wish to stake more while retaining the same delegatee and beneficiary.
+  /// @param _depositId Unique identifier of the deposit to which stake will be added.
+  /// @param _amount Quantity of stake to be added.
+  /// @param _depositor Address of the user on whose behalf this stake is being made.
+  /// @param _signature Signature of the user authorizing this stake.
+  function stakeMoreOnBehalf(
+    DepositIdentifier _depositId,
+    uint256 _amount,
+    address _depositor,
+    bytes memory _signature
+  ) external nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit, _depositor);
 
-    DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
-    _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
+    _revertIfSignatureIsNotValidNow(
+      _depositor,
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(STAKE_MORE_TYPEHASH, _depositId, _amount, _depositor, _useNonce(_depositor))
+        )
+      ),
+      _signature
+    );
 
-    totalStaked += _amount;
-    depositorTotalStaked[msg.sender] += _amount;
-    earningPower[deposit.beneficiary] += _amount;
-    deposit.balance += _amount;
-    emit StakeDeposited(msg.sender, _depositId, _amount, deposit.balance);
+    _stakeMore(deposit, _depositId, _amount);
   }
 
   /// @notice For an existing deposit, change the address to which governance voting power is
@@ -278,15 +357,40 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     external
     nonReentrant
   {
-    _revertIfAddressZero(_newDelegatee);
     Deposit storage deposit = deposits[_depositId];
-    _revertIfNotDepositOwner(deposit);
+    _revertIfNotDepositOwner(deposit, msg.sender);
+    _alterDelegatee(deposit, _depositId, _newDelegatee);
+  }
 
-    DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
-    emit DelegateeAltered(_depositId, deposit.delegatee, _newDelegatee);
-    deposit.delegatee = _newDelegatee;
-    DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
-    _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
+  /// @notice For an existing deposit, change the address to which governance voting power is
+  /// assigned on behalf of a user, using a signature to validate the user's intent.
+  /// @param _depositId Unique identifier of the deposit which will have its delegatee altered.
+  /// @param _newDelegatee Address of the new governance delegate.
+  /// @param _depositor Address of the user on whose behalf this stake is being made.
+  /// @param _signature Signature of the user authorizing this stake.
+  /// @dev The new delegatee may not be the zero address.
+  function alterDelegateeOnBehalf(
+    DepositIdentifier _depositId,
+    address _newDelegatee,
+    address _depositor,
+    bytes memory _signature
+  ) external nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit, _depositor);
+
+    _revertIfSignatureIsNotValidNow(
+      _depositor,
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            ALTER_DELEGATEE_TYPEHASH, _depositId, _newDelegatee, _depositor, _useNonce(_depositor)
+          )
+        )
+      ),
+      _signature
+    );
+
+    _alterDelegatee(deposit, _depositId, _newDelegatee);
   }
 
   /// @notice For an existing deposit, change the beneficiary to which staking rewards are
@@ -299,19 +403,44 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     external
     nonReentrant
   {
-    _revertIfAddressZero(_newBeneficiary);
     Deposit storage deposit = deposits[_depositId];
-    _revertIfNotDepositOwner(deposit);
+    _revertIfNotDepositOwner(deposit, msg.sender);
+    _alterBeneficiary(deposit, _depositId, _newBeneficiary);
+  }
 
-    _checkpointGlobalReward();
+  /// @notice For an existing deposit, change the beneficiary to which staking rewards are
+  /// accruing on behalf of a user, using a signature to validate the user's intent.
+  /// @param _depositId Unique identifier of the deposit which will have its beneficiary altered.
+  /// @param _newBeneficiary Address of the new rewards beneficiary.
+  /// @param _depositor Address of the user on whose behalf this stake is being made.
+  /// @param _signature Signature of the user authorizing this stake.
+  /// @dev The new beneficiary may not be the zero address.
+  function alterBeneficiaryOnBehalf(
+    DepositIdentifier _depositId,
+    address _newBeneficiary,
+    address _depositor,
+    bytes memory _signature
+  ) external nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit, _depositor);
 
-    _checkpointReward(deposit.beneficiary);
-    earningPower[deposit.beneficiary] -= deposit.balance;
+    _revertIfSignatureIsNotValidNow(
+      _depositor,
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(
+            ALTER_BENEFICIARY_TYPEHASH,
+            _depositId,
+            _newBeneficiary,
+            _depositor,
+            _useNonce(_depositor)
+          )
+        )
+      ),
+      _signature
+    );
 
-    _checkpointReward(_newBeneficiary);
-    emit BeneficiaryAltered(_depositId, deposit.beneficiary, _newBeneficiary);
-    deposit.beneficiary = _newBeneficiary;
-    earningPower[_newBeneficiary] += deposit.balance;
+    _alterBeneficiary(deposit, _depositId, _newBeneficiary);
   }
 
   /// @notice Withdraw staked tokens from an existing deposit.
@@ -321,31 +450,58 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// sender's account.
   function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
     Deposit storage deposit = deposits[_depositId];
-    _revertIfNotDepositOwner(deposit);
+    _revertIfNotDepositOwner(deposit, msg.sender);
+    _withdraw(deposit, _depositId, _amount);
+  }
 
-    _checkpointGlobalReward();
-    _checkpointReward(deposit.beneficiary);
+  /// @notice Withdraw staked tokens from an existing deposit on behalf of a user, using a
+  /// signature to validate the user's intent.
+  /// @param _depositId Unique identifier of the deposit from which stake will be withdrawn.
+  /// @param _amount Quantity of staked token to withdraw.
+  /// @param _depositor Address of the user on whose behalf this stake is being made.
+  /// @param _signature Signature of the user authorizing this stake.
+  /// @dev Stake is withdrawn to the deposit owner's account.
+  function withdrawOnBehalf(
+    DepositIdentifier _depositId,
+    uint256 _amount,
+    address _depositor,
+    bytes memory _signature
+  ) external nonReentrant {
+    Deposit storage deposit = deposits[_depositId];
+    _revertIfNotDepositOwner(deposit, _depositor);
 
-    deposit.balance -= _amount; // overflow prevents withdrawing more than balance
-    totalStaked -= _amount;
-    depositorTotalStaked[msg.sender] -= _amount;
-    earningPower[deposit.beneficiary] -= _amount;
-    _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
-    emit StakeWithdrawn(_depositId, _amount, deposit.balance);
+    _revertIfSignatureIsNotValidNow(
+      _depositor,
+      _hashTypedDataV4(
+        keccak256(
+          abi.encode(WITHDRAW_TYPEHASH, _depositId, _amount, _depositor, _useNonce(_depositor))
+        )
+      ),
+      _signature
+    );
+
+    _withdraw(deposit, _depositId, _amount);
   }
 
   /// @notice Claim reward tokens the message sender has earned as a stake beneficiary. Tokens are
   /// sent to the message sender.
   function claimReward() external nonReentrant {
-    _checkpointGlobalReward();
-    _checkpointReward(msg.sender);
+    _claimReward(msg.sender);
+  }
 
-    uint256 _reward = unclaimedRewardCheckpoint[msg.sender];
-    if (_reward == 0) return;
-    unclaimedRewardCheckpoint[msg.sender] = 0;
-    emit RewardClaimed(msg.sender, _reward);
-
-    SafeERC20.safeTransfer(REWARD_TOKEN, msg.sender, _reward);
+  /// @notice Claim earned reward tokens for a beneficiary, using a signature to validate the
+  /// beneficiary's intent. Tokens are sent to the beneficiary.
+  /// @param _beneficiary Address of the beneficiary who will receive the reward.
+  /// @param _signature Signature of the beneficiary authorizing this reward claim.
+  function claimRewardOnBehalf(address _beneficiary, bytes memory _signature) external nonReentrant {
+    _revertIfSignatureIsNotValidNow(
+      _beneficiary,
+      _hashTypedDataV4(
+        keccak256(abi.encode(CLAIM_REWARD_TYPEHASH, _beneficiary, _useNonce(_beneficiary)))
+      ),
+      _signature
+    );
+    _claimReward(_beneficiary);
   }
 
   /// @notice Called by an authorized rewards notifier to alert the staking contract that a new
@@ -411,8 +567,9 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   }
 
   /// @notice Internal convenience methods which performs the staking operations.
+  /// @dev This method must only be called after proper authorization has been completed.
   /// @dev See public stake methods for additional documentation.
-  function _stake(uint256 _amount, address _delegatee, address _beneficiary)
+  function _stake(address _depositor, uint256 _amount, address _delegatee, address _beneficiary)
     internal
     returns (DepositIdentifier _depositId)
   {
@@ -423,21 +580,107 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     _checkpointReward(_beneficiary);
 
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
-    _stakeTokenSafeTransferFrom(msg.sender, address(_surrogate), _amount);
+    _stakeTokenSafeTransferFrom(_depositor, address(_surrogate), _amount);
     _depositId = _useDepositId();
 
     totalStaked += _amount;
-    depositorTotalStaked[msg.sender] += _amount;
+    depositorTotalStaked[_depositor] += _amount;
     earningPower[_beneficiary] += _amount;
     deposits[_depositId] = Deposit({
       balance: _amount,
-      owner: msg.sender,
+      owner: _depositor,
       delegatee: _delegatee,
       beneficiary: _beneficiary
     });
-    emit StakeDeposited(msg.sender, _depositId, _amount, _amount);
+    emit StakeDeposited(_depositor, _depositId, _amount, _amount);
     emit BeneficiaryAltered(_depositId, address(0), _beneficiary);
     emit DelegateeAltered(_depositId, address(0), _delegatee);
+  }
+
+  /// @notice Internal convenience method which adds more stake to an existing deposit.
+  /// @dev This method must only be called after proper authorization has been completed.
+  /// @dev See public stakeMore methods for additional documentation.
+  function _stakeMore(Deposit storage deposit, DepositIdentifier _depositId, uint256 _amount)
+    internal
+  {
+    _checkpointGlobalReward();
+    _checkpointReward(deposit.beneficiary);
+
+    DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
+    _stakeTokenSafeTransferFrom(deposit.owner, address(_surrogate), _amount);
+
+    totalStaked += _amount;
+    depositorTotalStaked[deposit.owner] += _amount;
+    earningPower[deposit.beneficiary] += _amount;
+    deposit.balance += _amount;
+    emit StakeDeposited(deposit.owner, _depositId, _amount, deposit.balance);
+  }
+
+  /// @notice Internal convenience method which alters the delegatee of an existing deposit.
+  /// @dev This method must only be called after proper authorization has been completed.
+  /// @dev See public alterDelegatee methods for additional documentation.
+  function _alterDelegatee(
+    Deposit storage deposit,
+    DepositIdentifier _depositId,
+    address _newDelegatee
+  ) internal {
+    _revertIfAddressZero(_newDelegatee);
+    DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
+    emit DelegateeAltered(_depositId, deposit.delegatee, _newDelegatee);
+    deposit.delegatee = _newDelegatee;
+    DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
+    _stakeTokenSafeTransferFrom(address(_oldSurrogate), address(_newSurrogate), deposit.balance);
+  }
+
+  /// @notice Internal convenience method which alters the beneficiary of an existing deposit.
+  /// @dev This method must only be called after proper authorization has been completed.
+  /// @dev See public alterBeneficiary methods for additional documentation.
+  function _alterBeneficiary(
+    Deposit storage deposit,
+    DepositIdentifier _depositId,
+    address _newBeneficiary
+  ) internal {
+    _revertIfAddressZero(_newBeneficiary);
+    _checkpointGlobalReward();
+    _checkpointReward(deposit.beneficiary);
+    earningPower[deposit.beneficiary] -= deposit.balance;
+
+    _checkpointReward(_newBeneficiary);
+    emit BeneficiaryAltered(_depositId, deposit.beneficiary, _newBeneficiary);
+    deposit.beneficiary = _newBeneficiary;
+    earningPower[_newBeneficiary] += deposit.balance;
+  }
+
+  /// @notice Internal convenience method which withdraws the stake from an existing deposit.
+  /// @dev This method must only be called after proper authorization has been completed.
+  /// @dev See public withdraw methods for additional documentation.
+  function _withdraw(Deposit storage deposit, DepositIdentifier _depositId, uint256 _amount)
+    internal
+  {
+    _checkpointGlobalReward();
+    _checkpointReward(deposit.beneficiary);
+
+    deposit.balance -= _amount; // overflow prevents withdrawing more than balance
+    totalStaked -= _amount;
+    depositorTotalStaked[deposit.owner] -= _amount;
+    earningPower[deposit.beneficiary] -= _amount;
+    _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
+    emit StakeWithdrawn(_depositId, _amount, deposit.balance);
+  }
+
+  /// @notice Internal convenience method which claims earned rewards.
+  /// @dev This method must only be called after proper authorization has been completed.
+  /// @dev See public claimReward methods for additional documentation.
+  function _claimReward(address _beneficiary) internal {
+    _checkpointGlobalReward();
+    _checkpointReward(_beneficiary);
+
+    uint256 _reward = unclaimedRewardCheckpoint[_beneficiary];
+    if (_reward == 0) return;
+    unclaimedRewardCheckpoint[_beneficiary] = 0;
+    emit RewardClaimed(_beneficiary, _reward);
+
+    SafeERC20.safeTransfer(REWARD_TOKEN, _beneficiary, _reward);
   }
 
   /// @notice Checkpoints the global reward per token accumulator.
@@ -471,11 +714,12 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
     if (msg.sender != admin) revert UniStaker__Unauthorized("not admin", msg.sender);
   }
 
-  /// @notice Internal helper method which reverts UniStaker__Unauthorized if the message sender is
-  /// not the owner of the deposit.
+  /// @notice Internal helper method which reverts UniStaker__Unauthorized if the alleged owner is
+  /// not the true owner of the deposit.
   /// @param deposit Deposit to validate.
-  function _revertIfNotDepositOwner(Deposit storage deposit) internal view {
-    if (msg.sender != deposit.owner) revert UniStaker__Unauthorized("not owner", msg.sender);
+  /// @param owner Alleged owner of deposit.
+  function _revertIfNotDepositOwner(Deposit storage deposit, address owner) internal view {
+    if (owner != deposit.owner) revert UniStaker__Unauthorized("not owner", owner);
   }
 
   /// @notice Internal helper method which reverts with UniStaker__InvalidAddress if the account in
@@ -483,5 +727,18 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall {
   /// @param _account Account to verify.
   function _revertIfAddressZero(address _account) internal pure {
     if (_account == address(0)) revert UniStaker__InvalidAddress();
+  }
+
+  /// @notice Internal helper method which reverts with UniStaker__InvalidSignature if the signature
+  /// is invalid.
+  /// @param _signer Address of the signer.
+  /// @param _hash Hash of the message.
+  /// @param _signature Signature to validate.
+  function _revertIfSignatureIsNotValidNow(address _signer, bytes32 _hash, bytes memory _signature)
+    internal
+    view
+  {
+    bool _isValid = SignatureChecker.isValidSignatureNow(_signer, _hash, _signature);
+    if (!_isValid) revert UniStaker__InvalidSignature();
   }
 }
