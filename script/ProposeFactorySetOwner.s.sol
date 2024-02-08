@@ -7,10 +7,11 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
 contract ProposeFactorySetOwner is Script, DeployInput {
-  GovernorBravoDelegate constant GOVERNOR =
-    GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet governor
+  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet
+    // governor
   // TODO placeholder delegate: jessewldn
-  address PROPOSER = 0xe7925D190aea9279400cD9a005E33CEB9389Cc2b;
+  address PROPOSER =
+    vm.envOr("PROPOSER_ADDRESS", address(0xe7925D190aea9279400cD9a005E33CEB9389Cc2b));
 
   function propose(address _v3FactoryOwner) internal returns (uint256 _proposalId) {
     address[] memory _targets = new address[](1);
@@ -24,11 +25,7 @@ contract ProposeFactorySetOwner is Script, DeployInput {
     _calldatas[0] = abi.encode(address(_v3FactoryOwner));
 
     return GOVERNOR.propose(
-      _targets,
-      _values,
-      _signatures,
-      _calldatas,
-      "Change Uniswap V3 factory owner"
+      _targets, _values, _signatures, _calldatas, "Change Uniswap V3 factory owner"
     );
   }
 

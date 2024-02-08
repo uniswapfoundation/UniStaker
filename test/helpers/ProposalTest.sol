@@ -41,7 +41,7 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     }
 
     ProposeFactorySetOwner _proposeOwnerScript = new ProposeFactorySetOwner();
-    ProposeSetProtocolFee  _proposeFeeScript = new ProposeSetProtocolFee();
+    ProposeSetProtocolFee _proposeFeeScript = new ProposeSetProtocolFee();
     Deploy _deployScript = new Deploy();
 
     _deployScript.setUp();
@@ -53,8 +53,7 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     _proposeFeeScript.addPool(address(v3FactoryOwner), DAI_WETH_3000_POOL, 10, 10);
     _proposeFeeScript.addPool(address(v3FactoryOwner), DAI_USDC_100_POOL, 10, 10);
 
-	setFeeProposalId = _proposeFeeScript.run();
-
+    setFeeProposalId = _proposeFeeScript.run();
   }
   //--------------- HELPERS ---------------//
 

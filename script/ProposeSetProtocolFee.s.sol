@@ -7,21 +7,24 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
 contract ProposeSetProtocolFee is Script, DeployInput {
-  GovernorBravoDelegate constant GOVERNOR =
-    GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet governor
+  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet
+    // governor
   // TODO placeholder delegate: robert leshner
   // For testing purposes this should be different from other scripts
-  address PROPOSER = 0x88FB3D509fC49B515BFEb04e23f53ba339563981;
+  address PROPOSER =
+    vm.envOr("PROPOSER_ADDRESS", address(0x88FB3D509fC49B515BFEb04e23f53ba339563981));
 
   address[] public targets;
   uint256[] public values;
   string[] public signatures;
   bytes[] public calldatas;
 
-  function addPool(address _v3FactoryOwner, address _pool, uint8 _feeProtocol0, uint8 _feeProtocol1) external {
+  function addPool(address _v3FactoryOwner, address _pool, uint8 _feeProtocol0, uint8 _feeProtocol1)
+    external
+  {
     targets.push(_v3FactoryOwner);
     values.push(0);
-    signatures.push( "setFeeProtocol(address,uint8,uint8)");
+    signatures.push("setFeeProtocol(address,uint8,uint8)");
     calldatas.push(abi.encode(_pool, _feeProtocol0, _feeProtocol1));
   }
 
@@ -48,6 +51,8 @@ contract ProposeSetProtocolFee is Script, DeployInput {
     vm.rememberKey(_proposerKey);
 
     vm.startBroadcast(PROPOSER);
+    // TODO: should I put an example here? Or would we expect them to compose the pools in a
+    // separate script
     _proposalId = propose();
     vm.stopBroadcast();
     return _proposalId;
