@@ -99,21 +99,27 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     address beneficiary;
   }
 
+  /// @notice Type hash used when encoding data for `stakeOnBehalf` calls.
   bytes32 public constant STAKE_TYPEHASH = keccak256(
     "Stake(uint256 amount,address delegatee,address beneficiary,address depositor,uint256 nonce)"
   );
+  /// @notice Type hash used when encoding data for `stakeMoreOnBehalf` calls.
   bytes32 public constant STAKE_MORE_TYPEHASH =
     keccak256("StakeMore(uint256 depositId,uint256 amount,address depositor,uint256 nonce)");
-  bytes32 public constant WITHDRAW_TYPEHASH =
-    keccak256("Withdraw(uint256 depositId,uint256 amount,address depositor,uint256 nonce)");
-  bytes32 public constant CLAIM_REWARD_TYPEHASH =
-    keccak256("ClaimReward(address beneficiary,uint256 nonce)");
+  /// @notice Type hash used when encoding data for `alterDelegateeOnBehalf` calls.
   bytes32 public constant ALTER_DELEGATEE_TYPEHASH = keccak256(
     "AlterDelegatee(uint256 depositId,address newDelegatee,address depositor,uint256 nonce)"
   );
+  /// @notice Type hash used when encoding data for `alterBeneficiaryOnBehalf` calls.
   bytes32 public constant ALTER_BENEFICIARY_TYPEHASH = keccak256(
     "AlterBeneficiary(uint256 depositId,address newBeneficiary,address depositor,uint256 nonce)"
   );
+  /// @notice Type hash used when encoding data for `withdrawOnBehalf` calls.
+  bytes32 public constant WITHDRAW_TYPEHASH =
+    keccak256("Withdraw(uint256 depositId,uint256 amount,address depositor,uint256 nonce)");
+  /// @notice Type hash used when encoding data for `claimRewardOnBehalf` calls.
+  bytes32 public constant CLAIM_REWARD_TYPEHASH =
+    keccak256("ClaimReward(address beneficiary,uint256 nonce)");
 
   /// @notice ERC20 token in which rewards are denominated and distributed.
   IERC20 public immutable REWARD_TOKEN;
@@ -561,6 +567,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   }
 
   /// @notice Internal convenience methods which performs the staking operations.
+  /// @dev This method must only be called after proper authorization has been completed.
   /// @dev See public stake methods for additional documentation.
   function _stake(address _depositor, uint256 _amount, address _delegatee, address _beneficiary)
     internal
@@ -618,7 +625,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     address _newDelegatee
   ) internal {
     _revertIfAddressZero(_newDelegatee);
-    _checkpointGlobalReward();
     DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
     emit DelegateeAltered(_depositId, deposit.delegatee, _newDelegatee);
     deposit.delegatee = _newDelegatee;
