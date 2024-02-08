@@ -4,6 +4,7 @@
 pragma solidity 0.8.23;
 
 contract DeployInput {
+  address constant UNISWAP_GOVERNOR = 0x408ED6354d4973f66138C91495F2f2FCbd8724C3;
   address constant UNISWAP_GOVERNOR_TIMELOCK = 0x1a9C8182C09F50C8318d769245beA52c32BE35BC;
   address constant UNISWAP_V3_FACTORY_ADDRESS = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
   // TODO not finalized: currently WETH
