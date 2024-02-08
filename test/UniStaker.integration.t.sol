@@ -36,8 +36,9 @@ contract DeployScriptTest is Test, DeployInput {
 
 contract Propose is ProposalTest {
   function testFuzz_CorrectlyPassAndExecutreProposal() public {
-    _passAndQueueUniswapProposal();
-    _executeProposal();
+    _passAndQueueProposals();
+    _executeProposal(setOwnerProposalId);
+    _executeProposal(setFeeProposalId);
 
     IUniswapV3FactoryOwnerActions factory =
       IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS);

@@ -5,7 +5,8 @@ import {Test} from "forge-std/Test.sol";
 
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
-import {Propose} from "script/Propose.s.sol";
+import {ProposeFactorySetOwner} from "script/ProposeFactorySetOwner.s.sol";
+import {ProposeSetProtocolFee} from "script/ProposeSetProtocolFee.s.sol";
 import {Constants} from "test/helpers/Constants.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
@@ -13,7 +14,8 @@ import {UniStaker} from "src/UniStaker.sol";
 
 abstract contract ProposalTest is Test, DeployInput, Constants {
   //----------------- State and Setup ----------- //
-  uint256 uniswapProposalId;
+  uint256 setOwnerProposalId;
+  uint256 setFeeProposalId;
   address[] delegates;
   UniStaker uniStaker;
   V3FactoryOwner v3FactoryOwner;
@@ -38,69 +40,81 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
       delegates.push(_delegate);
     }
 
-    Propose _proposeScript = new Propose();
+    ProposeFactorySetOwner _proposeOwnerScript = new ProposeFactorySetOwner();
+    ProposeSetProtocolFee  _proposeFeeScript = new ProposeSetProtocolFee();
     Deploy _deployScript = new Deploy();
 
     _deployScript.setUp();
+
     (v3FactoryOwner, uniStaker) = _deployScript.run();
-    uniswapProposalId = _proposeScript.run(address(v3FactoryOwner));
+    setOwnerProposalId = _proposeOwnerScript.run(address(v3FactoryOwner));
+
+    _proposeFeeScript.addPool(address(v3FactoryOwner), WBTC_WETH_3000_POOL, 10, 10);
+    _proposeFeeScript.addPool(address(v3FactoryOwner), DAI_WETH_3000_POOL, 10, 10);
+    _proposeFeeScript.addPool(address(v3FactoryOwner), DAI_USDC_100_POOL, 10, 10);
+
+	setFeeProposalId = _proposeFeeScript.run();
+
   }
   //--------------- HELPERS ---------------//
 
-  function _uniswapProposalStartBlock() internal view returns (uint256) {
-    (,,, uint256 _startBlock,,,,,,) = governor.proposals(uniswapProposalId);
+  function _proposalStartBlock(uint256 _proposalId) internal view returns (uint256) {
+    (,,, uint256 _startBlock,,,,,,) = governor.proposals(_proposalId);
     return _startBlock;
   }
 
-  function _uniswapProposalEndBlock() internal view returns (uint256) {
-    (,,,, uint256 _endBlock,,,,,) = governor.proposals(uniswapProposalId);
+  function _proposalEndBlock(uint256 _proposalId) internal view returns (uint256) {
+    (,,,, uint256 _endBlock,,,,,) = governor.proposals(_proposalId);
     return _endBlock;
   }
 
-  function _uniswapProposalEta() internal view returns (uint256) {
-    (,, uint256 _eta,,,,,,,) = governor.proposals(uniswapProposalId);
+  function _proposalEta(uint256 _proposalId) internal view returns (uint256) {
+    (,, uint256 _eta,,,,,,,) = governor.proposals(_proposalId);
     return _eta;
   }
 
-  function _jumpToActiveUniswapProposal() internal {
-    vm.roll(_uniswapProposalStartBlock() + 1);
+  function _jumpToActiveProposal(uint256 _proposalId) internal {
+    vm.roll(_proposalStartBlock(_proposalId) + 1);
   }
 
-  function _jumpToUniswapVoteComplete() internal {
-    vm.roll(_uniswapProposalEndBlock() + 1);
+  function _jumpToVoteComplete(uint256 _proposalId) internal {
+    vm.roll(_proposalEndBlock(_proposalId) + 1);
   }
 
-  function _jumpPastProposalEta() internal {
+  function _jumpPastProposalEta(uint256 _proposalId) internal {
     vm.roll(block.number + 1); // move up one block so we're not in the same block as when queued
-    vm.warp(_uniswapProposalEta() + 1); // jump past the eta timestamp
+    vm.warp(_proposalEta(_proposalId) + 1); // jump past the eta timestamp
   }
 
-  function _delegatesVoteOnUniswapProposal(uint8 _support) internal {
+  function _delegatesVoteOnUniswapProposal(uint256 _proposalId, uint8 _support) internal {
     for (uint256 _index = 0; _index < delegates.length; _index++) {
       vm.prank(delegates[_index]);
-      governor.castVote(uniswapProposalId, _support);
+      governor.castVote(_proposalId, _support);
     }
   }
 
-  function _passUniswapProposal() internal {
-    _jumpToActiveUniswapProposal();
-    _delegatesVoteOnUniswapProposal(1);
-    _jumpToUniswapVoteComplete();
+  function _passProposals() internal {
+    _jumpToActiveProposal(setFeeProposalId);
+    _delegatesVoteOnUniswapProposal(setOwnerProposalId, 1);
+    _delegatesVoteOnUniswapProposal(setFeeProposalId, 1);
+    _jumpToVoteComplete(setFeeProposalId);
   }
 
   function _defeatUniswapProposal() internal {
-    _jumpToActiveUniswapProposal();
-    _delegatesVoteOnUniswapProposal(0);
-    _jumpToUniswapVoteComplete();
+    _jumpToActiveProposal(setFeeProposalId);
+    _delegatesVoteOnUniswapProposal(setOwnerProposalId, 0);
+    _delegatesVoteOnUniswapProposal(setFeeProposalId, 0);
+    _jumpToVoteComplete(setFeeProposalId);
   }
 
-  function _passAndQueueUniswapProposal() internal {
-    _passUniswapProposal();
-    governor.queue(uniswapProposalId);
+  function _passAndQueueProposals() internal {
+    _passProposals();
+    governor.queue(setOwnerProposalId);
+    governor.queue(setFeeProposalId);
   }
 
-  function _executeProposal() internal {
-    _jumpPastProposalEta();
-    governor.execute(uniswapProposalId);
+  function _executeProposal(uint256 _proposalId) internal {
+    _jumpPastProposalEta(_proposalId);
+    governor.execute(_proposalId);
   }
 }

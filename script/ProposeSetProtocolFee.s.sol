@@ -8,9 +8,10 @@ import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.s
 
 contract ProposeSetProtocolFee is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR =
-    GovernorBravoDelegate(0x408ED6354d4973f66138C91495F2f2FCbd8724C3); // Mainnet governor
-  // TODO placeholder delegate: jessewldn
-  address PROPOSER = 0xe7925D190aea9279400cD9a005E33CEB9389Cc2b;
+    GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet governor
+  // TODO placeholder delegate: robert leshner
+  // For testing purposes this should be different from other scripts
+  address PROPOSER = 0x88FB3D509fC49B515BFEb04e23f53ba339563981;
 
   address[] public targets;
   uint256[] public values;
