@@ -6,7 +6,6 @@ import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceive
 import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "openzeppelin/utils/ReentrancyGuard.sol";
 import {Multicall} from "openzeppelin/utils/Multicall.sol";
 import {Nonces} from "openzeppelin/utils/Nonces.sol";
 import {SignatureChecker} from "openzeppelin/utils/cryptography/SignatureChecker.sol";
@@ -29,7 +28,7 @@ import {EIP712} from "openzeppelin/utils/cryptography/EIP712.sol";
 /// received, the reward duration restarts, and the rate at which rewards are streamed is updated
 /// to include the newly received rewards along with any remaining rewards that have finished
 /// streaming since the last time a reward was received.
-contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP712, Nonces {
+contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   type DepositIdentifier is uint256;
 
   /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
@@ -253,7 +252,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// sender, and the beneficiary will also be the message sender.
   function stake(uint256 _amount, address _delegatee)
     external
-    nonReentrant
     returns (DepositIdentifier _depositId)
   {
     _depositId = _stake(msg.sender, _amount, _delegatee, msg.sender);
@@ -269,7 +267,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// owned by the message sender.
   function stake(uint256 _amount, address _delegatee, address _beneficiary)
     external
-    nonReentrant
     returns (DepositIdentifier _depositId)
   {
     _depositId = _stake(msg.sender, _amount, _delegatee, _beneficiary);
@@ -297,7 +294,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     uint8 _v,
     bytes32 _r,
     bytes32 _s
-  ) external nonReentrant returns (DepositIdentifier _depositId) {
+  ) external returns (DepositIdentifier _depositId) {
     STAKE_TOKEN.permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s);
     _depositId = _stake(msg.sender, _amount, _delegatee, _beneficiary);
   }
@@ -318,7 +315,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     address _beneficiary,
     address _depositor,
     bytes memory _signature
-  ) external nonReentrant returns (DepositIdentifier _depositId) {
+  ) external returns (DepositIdentifier _depositId) {
     _revertIfSignatureIsNotValidNow(
       _depositor,
       _hashTypedDataV4(
@@ -339,7 +336,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// @param _depositId Unique identifier of the deposit to which stake will be added.
   /// @param _amount Quantity of stake to be added.
   /// @dev The message sender must be the owner of the deposit.
-  function stakeMore(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
+  function stakeMore(DepositIdentifier _depositId, uint256 _amount) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _stakeMore(deposit, _depositId, _amount);
@@ -364,7 +361,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     uint8 _v,
     bytes32 _r,
     bytes32 _s
-  ) external nonReentrant {
+  ) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
 
@@ -384,7 +381,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     uint256 _amount,
     address _depositor,
     bytes memory _signature
-  ) external nonReentrant {
+  ) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
 
@@ -407,10 +404,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// @param _newDelegatee Address of the new governance delegate.
   /// @dev The new delegatee may not be the zero address. The message sender must be the owner of
   /// the deposit.
-  function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee)
-    external
-    nonReentrant
-  {
+  function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _alterDelegatee(deposit, _depositId, _newDelegatee);
@@ -428,7 +422,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     address _newDelegatee,
     address _depositor,
     bytes memory _signature
-  ) external nonReentrant {
+  ) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
 
@@ -453,10 +447,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// @param _newBeneficiary Address of the new rewards beneficiary.
   /// @dev The new beneficiary may not be the zero address. The message sender must be the owner of
   /// the deposit.
-  function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary)
-    external
-    nonReentrant
-  {
+  function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _alterBeneficiary(deposit, _depositId, _newBeneficiary);
@@ -474,7 +465,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     address _newBeneficiary,
     address _depositor,
     bytes memory _signature
-  ) external nonReentrant {
+  ) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
 
@@ -502,7 +493,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// @param _amount Quantity of staked token to withdraw.
   /// @dev The message sender must be the owner of the deposit. Stake is withdrawn to the message
   /// sender's account.
-  function withdraw(DepositIdentifier _depositId, uint256 _amount) external nonReentrant {
+  function withdraw(DepositIdentifier _depositId, uint256 _amount) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _withdraw(deposit, _depositId, _amount);
@@ -520,7 +511,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     uint256 _amount,
     address _depositor,
     bytes memory _signature
-  ) external nonReentrant {
+  ) external {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
 
@@ -539,7 +530,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
 
   /// @notice Claim reward tokens the message sender has earned as a stake beneficiary. Tokens are
   /// sent to the message sender.
-  function claimReward() external nonReentrant {
+  function claimReward() external {
     _claimReward(msg.sender);
   }
 
@@ -547,7 +538,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
   /// beneficiary's intent. Tokens are sent to the beneficiary.
   /// @param _beneficiary Address of the beneficiary who will receive the reward.
   /// @param _signature Signature of the beneficiary authorizing this reward claim.
-  function claimRewardOnBehalf(address _beneficiary, bytes memory _signature) external nonReentrant {
+  function claimRewardOnBehalf(address _beneficiary, bytes memory _signature) external {
     _revertIfSignatureIsNotValidNow(
       _beneficiary,
       _hashTypedDataV4(
@@ -634,7 +625,6 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     _checkpointReward(_beneficiary);
 
     DelegationSurrogate _surrogate = _fetchOrDeploySurrogate(_delegatee);
-    _stakeTokenSafeTransferFrom(_depositor, address(_surrogate), _amount);
     _depositId = _useDepositId();
 
     totalStaked += _amount;
@@ -646,6 +636,7 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
       delegatee: _delegatee,
       beneficiary: _beneficiary
     });
+    _stakeTokenSafeTransferFrom(_depositor, address(_surrogate), _amount);
     emit StakeDeposited(_depositor, _depositId, _amount, _amount);
     emit BeneficiaryAltered(_depositId, address(0), _beneficiary);
     emit DelegateeAltered(_depositId, address(0), _delegatee);
@@ -661,12 +652,12 @@ contract UniStaker is INotifiableRewardReceiver, ReentrancyGuard, Multicall, EIP
     _checkpointReward(deposit.beneficiary);
 
     DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
-    _stakeTokenSafeTransferFrom(deposit.owner, address(_surrogate), _amount);
 
     totalStaked += _amount;
     depositorTotalStaked[deposit.owner] += _amount;
     earningPower[deposit.beneficiary] += _amount;
     deposit.balance += _amount;
+    _stakeTokenSafeTransferFrom(deposit.owner, address(_surrogate), _amount);
     emit StakeDeposited(deposit.owner, _depositId, _amount, deposit.balance);
   }
 
