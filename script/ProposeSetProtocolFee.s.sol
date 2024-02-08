@@ -19,7 +19,7 @@ contract ProposeSetProtocolFee is Script, DeployInput {
   bytes[] public calldatas;
 
   function addPool(address _v3FactoryOwner, address _pool, uint8 _feeProtocol0, uint8 _feeProtocol1)
-    external
+    internal
   {
     targets.push(_v3FactoryOwner);
     values.push(0);
@@ -40,7 +40,7 @@ contract ProposeSetProtocolFee is Script, DeployInput {
   /// @dev This script set protocol fees for whatever pools and fees are configured. This script
   /// should only be run after `UniStaker` and the `V3FactoryOwner` are deployed, and after the
   /// `V3FactoryOwner` becomes the owner of ther Uniswap v3 factory.
-  function run() public returns (uint256 _proposalId) {
+  function run(address v3FactoryOwner) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.
     // When running as a script, broadcast will fail if the key is not correct.
     uint256 _proposerKey = vm.envOr(
@@ -50,8 +50,12 @@ contract ProposeSetProtocolFee is Script, DeployInput {
     vm.rememberKey(_proposerKey);
 
     vm.startBroadcast(PROPOSER);
-    // TODO: should I put an example here? Or would we expect them to compose the pools in a
-    // separate script
+    // These are example pools to modify and the below `addPool` lines should be modified
+    // if different values are needed.
+    addPool(v3FactoryOwner, WBTC_WETH_3000_POOL, 10, 10);
+    addPool(v3FactoryOwner, DAI_WETH_3000_POOL, 10, 10);
+    addPool(v3FactoryOwner, DAI_USDC_100_POOL, 10, 10);
+
     _proposalId = propose();
     vm.stopBroadcast();
     return _proposalId;
