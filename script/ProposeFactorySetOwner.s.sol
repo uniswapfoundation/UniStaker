@@ -7,9 +7,8 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
 contract ProposeFactorySetOwner is Script, DeployInput {
-  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet
-    // governor
-  // TODO placeholder delegate: jessewldn
+  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); // TODO
+    // placeholder delegate: jessewldn
   address PROPOSER =
     vm.envOr("PROPOSER_ADDRESS", address(0xe7925D190aea9279400cD9a005E33CEB9389Cc2b));
 

@@ -7,8 +7,7 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
 contract ProposeSetProtocolFee is Script, DeployInput {
-  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); // Mainnet
-    // governor
+  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);
   // TODO placeholder delegate: robert leshner
   // For testing purposes this should be different from other scripts
   address PROPOSER =
@@ -38,9 +37,9 @@ contract ProposeSetProtocolFee is Script, DeployInput {
     );
   }
 
-  /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this
-  /// script to create a proposal to change the Uniswap v3 factory owner and enable protocol fees
-  /// for select pools.
+  /// @dev This script set protocol fees for whatever pools and fees are configured. This script
+  /// should only be run after `UniStaker` and the `V3FactoryOwner` are deployed, and after the
+  /// `V3FactoryOwner` becomes the owner of ther Uniswap v3 factory.
   function run() public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.
     // When running as a script, broadcast will fail if the key is not correct.

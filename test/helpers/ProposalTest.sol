@@ -49,6 +49,7 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     (v3FactoryOwner, uniStaker) = _deployScript.run();
     setOwnerProposalId = _proposeOwnerScript.run(address(v3FactoryOwner));
 
+    // TODO: Placeholder pools for after launch
     _proposeFeeScript.addPool(address(v3FactoryOwner), WBTC_WETH_3000_POOL, 10, 10);
     _proposeFeeScript.addPool(address(v3FactoryOwner), DAI_WETH_3000_POOL, 10, 10);
     _proposeFeeScript.addPool(address(v3FactoryOwner), DAI_USDC_100_POOL, 10, 10);
