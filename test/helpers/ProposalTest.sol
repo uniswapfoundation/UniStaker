@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {ProposeFactorySetOwner} from "script/ProposeFactorySetOwner.s.sol";
-import {ProposeSetProtocolFee} from "script/ProposeSetProtocolFee.s.sol";
+import {ProposeSetProtocolFeeOnPools} from "script/ProposeSetProtocolFeeOnPools.s.sol";
 import {Constants} from "test/helpers/Constants.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
@@ -41,7 +41,7 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     }
 
     ProposeFactorySetOwner _proposeOwnerScript = new ProposeFactorySetOwner();
-    ProposeSetProtocolFee _proposeFeeScript = new ProposeSetProtocolFee();
+    ProposeSetProtocolFeeOnPools _proposeFeeScript = new ProposeSetProtocolFeeOnPools();
     Deploy _deployScript = new Deploy();
 
     _deployScript.setUp();

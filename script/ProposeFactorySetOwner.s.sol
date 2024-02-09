@@ -9,10 +9,13 @@ import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.s
 contract ProposeFactorySetOwner is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); // TODO
     // placeholder delegate: jessewldn
-  address PROPOSER =
+  address _proposer =
     vm.envOr("PROPOSER_ADDRESS", address(0xe7925D190aea9279400cD9a005E33CEB9389Cc2b));
 
-  function propose(address _v3FactoryOwner) internal returns (uint256 _proposalId) {
+  function proposeFactoryOwnerChangeOnGovernor(address _newV3FactoryOwner)
+    internal
+    returns (uint256 _proposalId)
+  {
     address[] memory _targets = new address[](1);
     uint256[] memory _values = new uint256[](1);
     string[] memory _signatures = new string[](1);
@@ -21,16 +24,18 @@ contract ProposeFactorySetOwner is Script, DeployInput {
     _targets[0] = UNISWAP_V3_FACTORY_ADDRESS;
     _values[0] = 0;
     _signatures[0] = "setOwner(address)";
-    _calldatas[0] = abi.encode(address(_v3FactoryOwner));
+    _calldatas[0] = abi.encode(address(_newV3FactoryOwner));
 
     return GOVERNOR.propose(
       _targets, _values, _signatures, _calldatas, "Change Uniswap V3 factory owner"
     );
   }
 
+  /// @param _newV3FactoryOwner The new factory owner which should be the recently deployed
+  /// `V3FactoryOwner`
   /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this
   /// script to create a proposal to change the Uniswap v3 factory owner.
-  function run(address v3FactoryOwner) public returns (uint256 _proposalId) {
+  function run(address _newV3FactoryOwner) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.
     // When running as a script, broadcast will fail if the key is not correct.
     uint256 _proposerKey = vm.envOr(
@@ -39,8 +44,8 @@ contract ProposeFactorySetOwner is Script, DeployInput {
     );
     vm.rememberKey(_proposerKey);
 
-    vm.startBroadcast(PROPOSER);
-    _proposalId = propose(v3FactoryOwner);
+    vm.startBroadcast(_proposer);
+    _proposalId = proposeFactoryOwnerChangeOnGovernor(_newV3FactoryOwner);
     vm.stopBroadcast();
     return _proposalId;
   }

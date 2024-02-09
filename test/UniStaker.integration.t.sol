@@ -35,27 +35,35 @@ contract DeployScriptTest is Test, DeployInput {
 }
 
 contract Propose is ProposalTest {
-  function testFuzz_CorrectlyPassAndExecutreProposal() public {
-    _passAndQueueProposals();
-    _executeProposal(setOwnerProposalId);
-    _executeProposal(setFeeProposalId);
-
+  function testFork_CorrectlyPassAndExecuteProposal() public {
     IUniswapV3FactoryOwnerActions factory =
       IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS);
 
     IUniswapPool wbtcWethPool = IUniswapPool(WBTC_WETH_3000_POOL);
-    (,,,,, uint8 wbtcWethFeeProtocol,) = wbtcWethPool.slot0();
+    (,,,,, uint8 oldWbtcWethFeeProtocol,) = wbtcWethPool.slot0();
 
     IUniswapPool daiWethPool = IUniswapPool(DAI_WETH_3000_POOL);
-    (,,,,, uint8 daiWethFeeProtocol,) = daiWethPool.slot0();
+    (,,,,, uint8 oldDaiWethFeeProtocol,) = daiWethPool.slot0();
 
     IUniswapPool daiUsdcPool = IUniswapPool(DAI_USDC_100_POOL);
-    (,,,,, uint8 daiUsdcFeeProtocol,) = daiUsdcPool.slot0();
+    (,,,,, uint8 oldDaiUsdcFeeProtocol,) = daiUsdcPool.slot0();
+
+    _passAndQueueProposals();
+    _executeProposal(setOwnerProposalId);
+    _executeProposal(setFeeProposalId);
+
+    (,,,,, uint8 newWbtcWethFeeProtocol,) = wbtcWethPool.slot0();
+    (,,,,, uint8 newDaiWethFeeProtocol,) = daiWethPool.slot0();
+    (,,,,, uint8 newDaiUsdcFeeProtocol,) = daiUsdcPool.slot0();
 
     assertEq(factory.owner(), address(v3FactoryOwner));
 
-    assertEq(wbtcWethFeeProtocol, 10 + (10 << 4));
-    assertEq(daiWethFeeProtocol, 10 + (10 << 4));
-    assertEq(daiUsdcFeeProtocol, 10 + (10 << 4));
+    assertEq(oldWbtcWethFeeProtocol, 0);
+    assertEq(oldDaiWethFeeProtocol, 0);
+    assertEq(oldWbtcWethFeeProtocol, 0);
+
+    assertEq(newWbtcWethFeeProtocol, 10 + (10 << 4));
+    assertEq(newDaiWethFeeProtocol, 10 + (10 << 4));
+    assertEq(newDaiUsdcFeeProtocol, 10 + (10 << 4));
   }
 }
