@@ -31,7 +31,7 @@ contract ProposeFactorySetOwner is Script, DeployInput {
     );
   }
 
-  /// @param _newV3FactoryOwner The new factory owner which should be the recently deployed
+  /// @param _newV3FactoryOwner The new factory owner which should have be the recently deployed.
   /// `V3FactoryOwner`
   /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this
   /// script to create a proposal to change the Uniswap v3 factory owner.
