@@ -48,7 +48,6 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
 
     (v3FactoryOwner, uniStaker) = _deployScript.run();
     setOwnerProposalId = _proposeOwnerScript.run(address(v3FactoryOwner));
-
     setFeeProposalId = _proposeFeeScript.run(address(v3FactoryOwner));
   }
   //--------------- HELPERS ---------------//
