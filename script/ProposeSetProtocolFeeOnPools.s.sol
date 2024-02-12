@@ -47,10 +47,7 @@ contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
   function run(address _newV3FactoryOwner) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.
     // When running as a script, broadcast will fail if the key is not correct.
-    uint256 _proposerKey = vm.envOr(
-      "PROPOSER_PRIVATE_KEY",
-      uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d)
-    );
+    uint256 _proposerKey = vm.envUint("PROPOSER_PRIVATE_KEY");
     vm.rememberKey(_proposerKey);
 
     vm.startBroadcast(_proposer);
