@@ -40,9 +40,9 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
       delegates.push(_delegate);
     }
 
+    Deploy _deployScript = new Deploy();
     ProposeFactorySetOwner _proposeOwnerScript = new ProposeFactorySetOwner();
     ProposeSetProtocolFeeOnPools _proposeFeeScript = new ProposeSetProtocolFeeOnPools();
-    Deploy _deployScript = new Deploy();
 
     _deployScript.setUp();
 
