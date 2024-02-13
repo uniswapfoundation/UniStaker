@@ -8,10 +8,9 @@ import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.s
 
 contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);
-  // TODO placeholder delegate: robert leshner
-  // For testing purposes this should be different from other scripts
+  // The default proposer is uf.eek.eth.
   address _proposer =
-    vm.envOr("PROPOSER_ADDRESS", address(0x88FB3D509fC49B515BFEb04e23f53ba339563981));
+    vm.envOr("PROPOSER_ADDRESS", address(0x0459f41c5f09BF678D9C07331894dE31d8C22255));
 
   address[] public targets;
   uint256[] public values;
