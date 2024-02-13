@@ -21,15 +21,6 @@ contract V3FactoryOwnerTest is Test {
   MockUniswapV3Pool pool;
   MockUniswapV3Factory factory;
 
-  event AdminSet(address indexed oldAmin, address indexed newAdmin);
-  event FeesClaimed(
-    address indexed pool,
-    address indexed caller,
-    address indexed recipient,
-    uint256 amount0,
-    uint256 amount1
-  );
-
   function setUp() public {
     vm.label(admin, "Admin");
 
@@ -49,6 +40,7 @@ contract V3FactoryOwnerTest is Test {
   // In order to fuzz over the payout amount, we require each test to call this method to deploy
   // the factory owner before doing anything else.
   function _deployFactoryOwnerWithPayoutAmount(uint256 _payoutAmount) public {
+    vm.assume(_payoutAmount != 0);
     factoryOwner = new V3FactoryOwner(admin, factory, payoutToken, _payoutAmount, rewardReceiver);
     vm.label(address(factoryOwner), "Factory Owner");
   }
@@ -61,7 +53,7 @@ contract Constructor is V3FactoryOwnerTest {
     assertEq(factoryOwner.admin(), admin);
     assertEq(address(factoryOwner.FACTORY()), address(factory));
     assertEq(address(factoryOwner.PAYOUT_TOKEN()), address(payoutToken));
-    assertEq(factoryOwner.PAYOUT_AMOUNT(), _payoutAmount);
+    assertEq(factoryOwner.payoutAmount(), _payoutAmount);
     assertEq(address(factoryOwner.REWARD_RECEIVER()), address(rewardReceiver));
   }
 
@@ -72,7 +64,7 @@ contract Constructor is V3FactoryOwnerTest {
     uint256 _payoutAmount,
     address _rewardReceiver
   ) public {
-    vm.assume(_admin != address(0));
+    vm.assume(_admin != address(0) && _payoutAmount != 0);
     V3FactoryOwner _factoryOwner = new V3FactoryOwner(
       _admin,
       IUniswapV3FactoryOwnerActions(_factory),
@@ -83,8 +75,48 @@ contract Constructor is V3FactoryOwnerTest {
     assertEq(_factoryOwner.admin(), _admin);
     assertEq(address(_factoryOwner.FACTORY()), address(_factory));
     assertEq(address(_factoryOwner.PAYOUT_TOKEN()), address(_payoutToken));
-    assertEq(_factoryOwner.PAYOUT_AMOUNT(), _payoutAmount);
+    assertEq(_factoryOwner.payoutAmount(), _payoutAmount);
     assertEq(address(_factoryOwner.REWARD_RECEIVER()), _rewardReceiver);
+  }
+
+  function testFuzz_EmitsAdminSetEvent(
+    address _admin,
+    address _factory,
+    address _payoutToken,
+    uint256 _payoutAmount,
+    address _rewardReceiver
+  ) public {
+    vm.assume(_admin != address(0) && _payoutAmount != 0);
+
+    vm.expectEmit();
+    emit V3FactoryOwner.AdminSet(address(0), _admin);
+    new V3FactoryOwner(
+      _admin,
+      IUniswapV3FactoryOwnerActions(_factory),
+      IERC20(_payoutToken),
+      _payoutAmount,
+      INotifiableRewardReceiver(_rewardReceiver)
+    );
+  }
+
+  function testFuzz_EmitsPayoutSetEvent(
+    address _admin,
+    address _factory,
+    address _payoutToken,
+    uint256 _payoutAmount,
+    address _rewardReceiver
+  ) public {
+    vm.assume(_admin != address(0) && _payoutAmount != 0);
+
+    vm.expectEmit();
+    emit V3FactoryOwner.PayoutAmountSet(0, _payoutAmount);
+    new V3FactoryOwner(
+      _admin,
+      IUniswapV3FactoryOwnerActions(_factory),
+      IERC20(_payoutToken),
+      _payoutAmount,
+      INotifiableRewardReceiver(_rewardReceiver)
+    );
   }
 
   function testFuzz_RevertIf_TheAdminIsAddressZero(
@@ -93,6 +125,7 @@ contract Constructor is V3FactoryOwnerTest {
     uint256 _payoutAmount,
     address _rewardReceiver
   ) public {
+    vm.assume(_payoutAmount != 0);
     vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InvalidAddress.selector);
     new V3FactoryOwner(
       address(0),
@@ -102,12 +135,30 @@ contract Constructor is V3FactoryOwnerTest {
       INotifiableRewardReceiver(_rewardReceiver)
     );
   }
+
+  function testFuzz_RevertIf_ThePayoutAmountIsZero(
+    address _admin,
+    address _factory,
+    address _payoutToken,
+    address _rewardReceiver
+  ) public {
+    vm.assume(_admin != address(0));
+
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InvalidPayoutAmount.selector);
+    new V3FactoryOwner(
+      _admin,
+      IUniswapV3FactoryOwnerActions(_factory),
+      IERC20(_payoutToken),
+      0,
+      INotifiableRewardReceiver(_rewardReceiver)
+    );
+  }
 }
 
 contract SetAdmin is V3FactoryOwnerTest {
   function testFuzz_UpdatesTheAdminWhenCalledByTheCurrentAdmin(address _newAdmin) public {
     vm.assume(_newAdmin != address(0));
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
 
     vm.prank(admin);
     factoryOwner.setAdmin(_newAdmin);
@@ -117,18 +168,18 @@ contract SetAdmin is V3FactoryOwnerTest {
 
   function testFuzz_EmitsAnEventWhenUpdatingTheAdmin(address _newAdmin) public {
     vm.assume(_newAdmin != address(0));
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
 
     vm.expectEmit();
     vm.prank(admin);
-    emit AdminSet(admin, _newAdmin);
+    emit V3FactoryOwner.AdminSet(admin, _newAdmin);
     factoryOwner.setAdmin(_newAdmin);
   }
 
   function testFuzz_RevertIf_TheCallerIsNotTheCurrentAdmin(address _notAdmin, address _newAdmin)
     public
   {
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
 
     vm.assume(_notAdmin != admin);
 
@@ -138,11 +189,60 @@ contract SetAdmin is V3FactoryOwnerTest {
   }
 
   function test_RevertIf_TheNewAdminIsAddressZero() public {
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
 
     vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InvalidAddress.selector);
     vm.prank(admin);
     factoryOwner.setAdmin(address(0));
+  }
+}
+
+contract SetPayoutAmount is V3FactoryOwnerTest {
+  function testFuzz_UpdatesThePayoutAmountWhenCalledByAdmin(
+    uint256 _initialPayoutAmount,
+    uint256 _newPayoutAmount
+  ) public {
+    vm.assume(_newPayoutAmount != 0);
+    _deployFactoryOwnerWithPayoutAmount(_initialPayoutAmount);
+
+    vm.prank(admin);
+    factoryOwner.setPayoutAmount(_newPayoutAmount);
+
+    assertEq(factoryOwner.payoutAmount(), _newPayoutAmount);
+  }
+
+  function testFuzz_EmitsAnEventWhenUpdatingThePayoutAmount(
+    uint256 _initialPayoutAmount,
+    uint256 _newPayoutAmount
+  ) public {
+    vm.assume(_newPayoutAmount != 0);
+    _deployFactoryOwnerWithPayoutAmount(_initialPayoutAmount);
+
+    vm.expectEmit();
+    vm.prank(admin);
+    emit V3FactoryOwner.PayoutAmountSet(_initialPayoutAmount, _newPayoutAmount);
+    factoryOwner.setPayoutAmount(_newPayoutAmount);
+  }
+
+  function testFuzz_RevertIf_TheCallerIsNotAdmin(
+    uint256 _initialPayoutAmount,
+    uint256 _newPayoutAmount,
+    address _notAdmin
+  ) public {
+    vm.assume(_notAdmin != admin && _newPayoutAmount != 0);
+    _deployFactoryOwnerWithPayoutAmount(_initialPayoutAmount);
+
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__Unauthorized.selector);
+    vm.prank(_notAdmin);
+    factoryOwner.setPayoutAmount(_newPayoutAmount);
+  }
+
+  function testFuzz_RevertIf_TheNewPayoutAmountIsZero(uint256 _initialPayoutAmount) public {
+    _deployFactoryOwnerWithPayoutAmount(_initialPayoutAmount);
+
+    vm.expectRevert(V3FactoryOwner.V3FactoryOwner__InvalidPayoutAmount.selector);
+    vm.prank(admin);
+    factoryOwner.setPayoutAmount(0);
   }
 }
 
@@ -151,7 +251,7 @@ contract EnableFeeAmount is V3FactoryOwnerTest {
     uint24 _fee,
     int24 _tickSpacing
   ) public {
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
 
     vm.prank(admin);
     factoryOwner.enableFeeAmount(_fee, _tickSpacing);
@@ -165,7 +265,7 @@ contract EnableFeeAmount is V3FactoryOwnerTest {
     uint24 _fee,
     int24 _tickSpacing
   ) public {
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
     vm.assume(_notAdmin != admin);
 
     vm.expectRevert(V3FactoryOwner.V3FactoryOwner__Unauthorized.selector);
@@ -179,7 +279,7 @@ contract SetFeeProtocol is V3FactoryOwnerTest {
     uint8 _feeProtocol0,
     uint8 _feeProtocol1
   ) public {
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
 
     vm.prank(admin);
     factoryOwner.setFeeProtocol(pool, _feeProtocol0, _feeProtocol1);
@@ -193,7 +293,7 @@ contract SetFeeProtocol is V3FactoryOwnerTest {
     uint8 _feeProtocol0,
     uint8 _feeProtocol1
   ) public {
-    _deployFactoryOwnerWithPayoutAmount(0);
+    _deployFactoryOwnerWithPayoutAmount(1);
     vm.assume(_notAdmin != admin);
 
     vm.expectRevert(V3FactoryOwner.V3FactoryOwner__Unauthorized.selector);
@@ -283,7 +383,7 @@ contract ClaimFees is V3FactoryOwnerTest {
     vm.startPrank(_caller);
     payoutToken.approve(address(factoryOwner), _payoutAmount);
     vm.expectEmit();
-    emit FeesClaimed(address(pool), _caller, _recipient, _amount0, _amount1);
+    emit V3FactoryOwner.FeesClaimed(address(pool), _caller, _recipient, _amount0, _amount1);
     factoryOwner.claimFees(pool, _recipient, _amount0, _amount1);
     vm.stopPrank();
   }

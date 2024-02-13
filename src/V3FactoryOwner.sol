@@ -47,11 +47,17 @@ contract V3FactoryOwner {
   /// @notice Emitted when the existing admin designates a new address as the admin.
   event AdminSet(address indexed oldAmin, address indexed newAdmin);
 
+  /// @notice Emitted when the admin updates the payout amount.
+  event PayoutAmountSet(uint256 indexed oldPayoutAmount, uint256 indexed newPayoutAmount);
+
   /// @notice Thrown when an unauthorized account calls a privileged function.
   error V3FactoryOwner__Unauthorized();
 
   /// @notice Thrown if the proposed admin is the zero address.
   error V3FactoryOwner__InvalidAddress();
+
+  /// @notice Thrown if the proposed payout amount is zero.
+  error V3FactoryOwner__InvalidPayoutAmount();
 
   /// @notice Thrown when the fees collected from a pool are less than the caller expects.
   error V3FactoryOwner__InsufficientFeesCollected();
@@ -63,7 +69,7 @@ contract V3FactoryOwner {
   IERC20 public immutable PAYOUT_TOKEN;
 
   /// @notice The raw amount of the payout token which is paid by a user when claiming pool fees.
-  uint256 public immutable PAYOUT_AMOUNT;
+  uint256 public payoutAmount;
 
   /// @notice The contract that receives the payout and is notified via method call, when pool fees
   /// are claimed.
@@ -76,7 +82,8 @@ contract V3FactoryOwner {
   /// @param _admin The initial admin address for this deployment. Cannot be zero address.
   /// @param _factory The v3 factory instance for which this deployment will serve as owner.
   /// @param _payoutToken The ERC-20 token in which payouts will be denominated.
-  /// @param _payoutAmount The raw amount of the payout token required to claim fees from a pool.
+  /// @param _payoutAmount The initial raw amount of the payout token required to claim fees from
+  /// a pool.
   /// @param _rewardReceiver The contract that will receive the payout when fees are claimed.
   constructor(
     address _admin,
@@ -86,11 +93,16 @@ contract V3FactoryOwner {
     INotifiableRewardReceiver _rewardReceiver
   ) {
     if (_admin == address(0)) revert V3FactoryOwner__InvalidAddress();
+    if (_payoutAmount == 0) revert V3FactoryOwner__InvalidPayoutAmount();
+
     admin = _admin;
     FACTORY = _factory;
     PAYOUT_TOKEN = _payoutToken;
-    PAYOUT_AMOUNT = _payoutAmount;
+    payoutAmount = _payoutAmount;
     REWARD_RECEIVER = _rewardReceiver;
+
+    emit AdminSet(address(0), _admin);
+    emit PayoutAmountSet(0, _payoutAmount);
   }
 
   /// @notice Pass the admin role to a new address. Must be called by the existing admin.
@@ -100,6 +112,15 @@ contract V3FactoryOwner {
     if (_newAdmin == address(0)) revert V3FactoryOwner__InvalidAddress();
     emit AdminSet(admin, _newAdmin);
     admin = _newAdmin;
+  }
+
+  /// @notice Update the payout amount to a new value. Must be called by admin.
+  /// @param _newPayoutAmount The value that will be the new payout amount.
+  function setPayoutAmount(uint256 _newPayoutAmount) external {
+    _revertIfNotAdmin();
+    if (_newPayoutAmount == 0) revert V3FactoryOwner__InvalidPayoutAmount();
+    emit PayoutAmountSet(payoutAmount, _newPayoutAmount);
+    payoutAmount = _newPayoutAmount;
   }
 
   /// @notice Passthrough method that enables a fee amount on the factory. Must be called by the
@@ -163,8 +184,8 @@ contract V3FactoryOwner {
     uint128 _amount0Requested,
     uint128 _amount1Requested
   ) external returns (uint128, uint128) {
-    PAYOUT_TOKEN.safeTransferFrom(msg.sender, address(REWARD_RECEIVER), PAYOUT_AMOUNT);
-    REWARD_RECEIVER.notifyRewardAmount(PAYOUT_AMOUNT);
+    PAYOUT_TOKEN.safeTransferFrom(msg.sender, address(REWARD_RECEIVER), payoutAmount);
+    REWARD_RECEIVER.notifyRewardAmount(payoutAmount);
     (uint128 _amount0, uint128 _amount1) =
       _pool.collectProtocol(_recipient, _amount0Requested, _amount1Requested);
 

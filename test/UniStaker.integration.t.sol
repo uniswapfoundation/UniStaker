@@ -24,7 +24,7 @@ contract DeployScriptTest is Test, DeployInput {
     assertEq(v3FactoryOwner.admin(), UNISWAP_GOVERNOR_TIMELOCK);
     assertEq(address(v3FactoryOwner.FACTORY()), address(UNISWAP_V3_FACTORY_ADDRESS));
     assertEq(address(v3FactoryOwner.PAYOUT_TOKEN()), PAYOUT_TOKEN_ADDRESS);
-    assertEq(v3FactoryOwner.PAYOUT_AMOUNT(), PAYOUT_AMOUNT);
+    assertEq(v3FactoryOwner.payoutAmount(), PAYOUT_AMOUNT);
     assertEq(address(v3FactoryOwner.REWARD_RECEIVER()), address(uniStaker));
 
     assertEq(address(uniStaker.REWARD_TOKEN()), PAYOUT_TOKEN_ADDRESS);
