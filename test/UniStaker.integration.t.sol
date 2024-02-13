@@ -13,7 +13,7 @@ import {IUniswapPool} from "test/helpers/interfaces/IUniswapPool.sol";
 
 contract DeployScriptTest is Test, DeployInput {
   function setUp() public {
-    vm.createSelectFork(vm.rpcUrl("mainnet"));
+    vm.createSelectFork(vm.rpcUrl("mainnet"), 19219474);
   }
 
   function testFork_DeployStakingContracts() public {

@@ -28,7 +28,7 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   }
 
   function setUp() public virtual {
-    vm.createSelectFork(vm.rpcUrl("mainnet"));
+    vm.createSelectFork(vm.rpcUrl("mainnet"), 19219474);
     vm.setEnv(
       "PROPOSER_PRIVATE_KEY",
       vm.toString(uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d))
