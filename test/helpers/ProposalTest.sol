@@ -21,6 +21,12 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   V3FactoryOwner v3FactoryOwner;
   GovernorBravoDelegate governor = GovernorBravoDelegate(UNISWAP_GOVERNOR_ADDRESS);
 
+  enum VoteType {
+		  Against,
+		  For,
+		  Abstain
+  }
+
   function setUp() public virtual {
     vm.createSelectFork(vm.rpcUrl("mainnet"));
     vm.setEnv(
@@ -93,15 +99,15 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
 
   function _passProposals() internal {
     _jumpToActiveProposal(setFeeProposalId);
-    _delegatesVoteOnUniswapProposal(setOwnerProposalId, 1);
-    _delegatesVoteOnUniswapProposal(setFeeProposalId, 1);
+    _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.For));
+    _delegatesVoteOnUniswapProposal(setFeeProposalId, uint8(VoteType.For));
     _jumpToVoteComplete(setFeeProposalId);
   }
 
   function _defeatUniswapProposal() internal {
     _jumpToActiveProposal(setFeeProposalId);
-    _delegatesVoteOnUniswapProposal(setOwnerProposalId, 0);
-    _delegatesVoteOnUniswapProposal(setFeeProposalId, 0);
+    _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.Against));
+    _delegatesVoteOnUniswapProposal(setFeeProposalId, uint8(VoteType.Against));
     _jumpToVoteComplete(setFeeProposalId);
   }
 
