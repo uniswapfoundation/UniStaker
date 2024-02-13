@@ -60,7 +60,7 @@ contract Propose is ProposalTest {
 
     assertEq(oldWbtcWethFeeProtocol, 0);
     assertEq(oldDaiWethFeeProtocol, 0);
-    assertEq(oldWbtcWethFeeProtocol, 0);
+    assertEq(oldDaiUsdcFeeProtocol, 0);
 
     assertEq(newWbtcWethFeeProtocol, 10 + (10 << 4));
     assertEq(newDaiWethFeeProtocol, 10 + (10 << 4));
