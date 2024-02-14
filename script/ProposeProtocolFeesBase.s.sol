@@ -6,7 +6,8 @@ import {Script} from "forge-std/Script.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
-/// @dev A new proposal script that updates a pool's fee settings should inherit this abstract script and implement `getPoolFeeSettings`.
+/// @dev A new proposal script that updates a pool's fee settings should inherit this abstract
+/// script and implement `getPoolFeeSettings`.
 abstract contract ProposeProtocolFeesBase is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);
   // The default proposer is uf.eek.eth.
@@ -17,19 +18,23 @@ abstract contract ProposeProtocolFeesBase is Script, DeployInput {
   address[] public targets;
   /// @dev The values to pass into the proposal which should all be 0.
   uint256[] public values;
-  /// @dev The function signatures that will be called when a proposal is executed. All of the signatures should be `setFeeProtocol(address,uint8,uint8)`.
+  /// @dev The function signatures that will be called when a proposal is executed. All of the
+  /// signatures should be `setFeeProtocol(address,uint8,uint8)`.
   string[] public signatures;
-  /// @dev The calldata for all of function calls in the proposal. These should match the `PoolFeeSettings` defined in `getPoolFeeSettings`.
+  /// @dev The calldata for all of function calls in the proposal. These should match the
+  /// `PoolFeeSettings` defined in `getPoolFeeSettings`.
   bytes[] public calldatas;
 
-  /// @dev A struct to represent all of the information needed to update a pool's fees. Such as the target pool and the new fees for each token in the pool.
+  /// @dev A struct to represent all of the information needed to update a pool's fees. Such as the
+  /// target pool and the new fees for each token in the pool.
   struct PoolFeeSettings {
     address pool;
     uint8 feeProtocol0;
     uint8 feeProtocol1;
   }
 
-  /// @dev A utility function that updates the targets, values, signatures, and calldatas for a proposal that will only update protocol fees for a list of pools. 
+  /// @dev A utility function that updates the targets, values, signatures, and calldatas for a
+  /// proposal that will only update protocol fees for a list of pools.
   function pushFeeSettingToProposalCalldata(
     address _v3FactoryOwner,
     address _pool,
@@ -43,7 +48,10 @@ abstract contract ProposeProtocolFeesBase is Script, DeployInput {
   }
 
   /// @return A list of pool settings used to update protocol fees for each pool.
-  /// @dev A new `ProposeProtocolFees` script should extend this base script and only implement this function to return a list of pools to be updated with their new settings. This function will return the appropriate pool settings in the `run` method and add them to the proposal that will be proposed.
+  /// @dev A new `ProposeProtocolFees` script should extend this base script and only implement this
+  /// function to return a list of pools to be updated with their new settings. This function will
+  /// return the appropriate pool settings in the `run` method and add them to the proposal that
+  /// will be proposed.
   function getPoolFeeSettings() internal pure virtual returns (PoolFeeSettings[] memory);
 
   function propose() internal returns (uint256 _proposalId) {
