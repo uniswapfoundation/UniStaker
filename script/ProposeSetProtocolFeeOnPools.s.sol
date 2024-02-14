@@ -17,7 +17,7 @@ abstract contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
   string[] public signatures;
   bytes[] public calldatas;
 
-  struct PoolFees {
+  struct PoolFeeSettings {
     address pool;
     uint8 feeProtocol0;
     uint8 feeProtocol1;
@@ -35,7 +35,7 @@ abstract contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
     calldatas.push(abi.encode(_pool, _feeProtocol0, _feeProtocol1));
   }
 
-  function newPoolFeeSettings() internal virtual returns (PoolFees[] memory);
+  function getPoolFeeSettings() internal virtual returns (PoolFeeSettings[] memory);
 
   function propose() internal returns (uint256 _proposalId) {
     return GOVERNOR.propose(
@@ -58,10 +58,13 @@ abstract contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
     vm.rememberKey(_proposerKey);
 
     vm.startBroadcast(_proposer);
-    PoolFees[] memory poolFees = newPoolFeeSettings();
-    for (uint256 i = 0; i < poolFees.length; i++) {
+    PoolFeeSettings[] memory poolFeeSettings = getPoolFeeSettings();
+    for (uint256 i = 0; i < poolFeeSettings.length; i++) {
       pushFeeSettingToProposalCalldata(
-        _newV3FactoryOwner, poolFees[i].pool, poolFees[i].feeProtocol0, poolFees[i].feeProtocol1
+        _newV3FactoryOwner,
+        poolFeeSettings[i].pool,
+        poolFeeSettings[i].feeProtocol0,
+        poolFeeSettings[i].feeProtocol1
       );
     }
 

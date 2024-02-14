@@ -12,6 +12,7 @@ contract ProposeFactorySetOwner is Script, DeployInput {
   address _proposer =
     vm.envOr("PROPOSER_ADDRESS", address(0x0459f41c5f09BF678D9C07331894dE31d8C22255));
 
+  /// @param _newV3FactoryOwner The new factory owner which should have be the recently deployed.
   function proposeFactoryOwnerChangeOnGovernor(address _newV3FactoryOwner)
     internal
     returns (uint256 _proposalId)
