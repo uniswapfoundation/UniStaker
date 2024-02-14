@@ -7,7 +7,7 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 import {ProposeProtocolFeesBase} from "script/ProposeProtocolFeesBase.s.sol";
 
-contract ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools is ProposeProtocolFeesBase {
+contract ProposeProtocolFeesBatch1 is ProposeProtocolFeesBase {
   /// @return An array of pools and new fee values to set
   function getPoolFeeSettings() internal pure override returns (PoolFeeSettings[] memory) {
     PoolFeeSettings[] memory poolFeeSettings = new PoolFeeSettings[](3);

@@ -6,8 +6,8 @@ import {Test} from "forge-std/Test.sol";
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {ProposeFactorySetOwner} from "script/ProposeFactorySetOwner.s.sol";
-import {ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools} from
-  "script/ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools.sol";
+import {ProposeProtocolFeesBatch1} from
+  "script/ProposeProtocolFeesBatch1.sol";
 import {Constants} from "test/helpers/Constants.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
@@ -63,8 +63,8 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   }
 
   function _proposePoolFee() internal {
-    ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools _proposeFeeScript =
-      new ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools();
+    ProposeProtocolFeesBatch1 _proposeFeeScript =
+      new ProposeProtocolFeesBatch1();
     setFeeProposalId = _proposeFeeScript.run(address(v3FactoryOwner));
   }
 
