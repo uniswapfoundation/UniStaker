@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
@@ -115,13 +114,6 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.For));
     _jumpToVoteComplete(setOwnerProposalId);
   }
-
-  //function _defeatUniswapProposal() internal {
-  //  _jumpToActiveProposal(setFeeProposalId);
-  //  _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.Against));
-  //  _delegatesVoteOnUniswapProposal(setFeeProposalId, uint8(VoteType.Against));
-  //  _jumpToVoteComplete(setFeeProposalId);
-  //}
 
   function _passAndQueueProposals() internal {
     _passNewFactoryOwnerProposal();
