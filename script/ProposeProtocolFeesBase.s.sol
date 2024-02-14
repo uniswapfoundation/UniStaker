@@ -6,7 +6,7 @@ import {Script} from "forge-std/Script.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
-abstract contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
+abstract contract ProposeProtocolFeesBase is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);
   // The default proposer is uf.eek.eth.
   address _proposer =

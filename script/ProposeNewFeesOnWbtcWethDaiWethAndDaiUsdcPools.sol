@@ -5,9 +5,9 @@ import {Script} from "forge-std/Script.sol";
 
 import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
-import {ProposeSetProtocolFeeOnPools} from "script/ProposeSetProtocolFeeOnPools.s.sol";
+import {ProposeProtocolFeesBase} from "script/ProposeProtocolFeesBase.s.sol";
 
-contract ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools is ProposeSetProtocolFeeOnPools {
+contract ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools is ProposeProtocolFeesBase {
   /// @return An array of pools and new fee values to set
   function getPoolFeeSettings() internal pure override returns (PoolFeeSettings[] memory) {
     PoolFeeSettings[] memory poolFeeSettings = new PoolFeeSettings[](3);
