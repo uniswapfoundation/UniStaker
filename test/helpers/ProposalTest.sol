@@ -2,11 +2,12 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 
 import {Deploy} from "script/Deploy.s.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {ProposeFactorySetOwner} from "script/ProposeFactorySetOwner.s.sol";
-import {ProposeSetProtocolFeeOnPools} from "script/ProposeSetProtocolFeeOnPools.s.sol";
+import {ProposeSetProtocolFeeOnFirstPools} from "script/ProposeSetProtocolFeeOnFirstPools.sol";
 import {Constants} from "test/helpers/Constants.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
@@ -22,13 +23,13 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   GovernorBravoDelegate governor = GovernorBravoDelegate(UNISWAP_GOVERNOR_ADDRESS);
 
   enum VoteType {
-		  Against,
-		  For,
-		  Abstain
+    Against,
+    For,
+    Abstain
   }
 
   function setUp() public virtual {
-    vm.createSelectFork(vm.rpcUrl("mainnet"), 19219474);
+    vm.createSelectFork(vm.rpcUrl("mainnet"), 19_114_228);
     vm.setEnv(
       "PROPOSER_PRIVATE_KEY",
       vm.toString(uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d))
@@ -51,16 +52,21 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     }
 
     Deploy _deployScript = new Deploy();
-    ProposeFactorySetOwner _proposeOwnerScript = new ProposeFactorySetOwner();
-    ProposeSetProtocolFeeOnPools _proposeFeeScript = new ProposeSetProtocolFeeOnPools();
-
     _deployScript.setUp();
-
     (v3FactoryOwner, uniStaker) = _deployScript.run();
-    setOwnerProposalId = _proposeOwnerScript.run(address(v3FactoryOwner));
-    setFeeProposalId = _proposeFeeScript.run(address(v3FactoryOwner));
   }
   //--------------- HELPERS ---------------//
+
+  function _proposeNewFactoryOwner() internal {
+    ProposeFactorySetOwner _proposeOwnerScript = new ProposeFactorySetOwner();
+    setOwnerProposalId = _proposeOwnerScript.run(address(v3FactoryOwner));
+  }
+
+  function _proposePoolFee() internal {
+
+    ProposeSetProtocolFeeOnFirstPools _proposeFeeScript = new ProposeSetProtocolFeeOnFirstPools();
+    setFeeProposalId = _proposeFeeScript.run(address(v3FactoryOwner));
+  }
 
   function _proposalStartBlock(uint256 _proposalId) internal view returns (uint256) {
     (,,, uint256 _startBlock,,,,,,) = governor.proposals(_proposalId);
@@ -97,24 +103,36 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     }
   }
 
-  function _passProposals() internal {
+  function _passFeeProposal() internal {
+    _proposePoolFee();
     _jumpToActiveProposal(setFeeProposalId);
-    _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.For));
     _delegatesVoteOnUniswapProposal(setFeeProposalId, uint8(VoteType.For));
     _jumpToVoteComplete(setFeeProposalId);
   }
 
-  function _defeatUniswapProposal() internal {
-    _jumpToActiveProposal(setFeeProposalId);
-    _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.Against));
-    _delegatesVoteOnUniswapProposal(setFeeProposalId, uint8(VoteType.Against));
-    _jumpToVoteComplete(setFeeProposalId);
+  function _passNewFactoryOwnerProposal() internal {
+    _proposeNewFactoryOwner();
+    _jumpToActiveProposal(setOwnerProposalId);
+    _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.For));
+    _jumpToVoteComplete(setOwnerProposalId);
   }
 
+
+  //function _defeatUniswapProposal() internal {
+  //  _jumpToActiveProposal(setFeeProposalId);
+  //  _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.Against));
+  //  _delegatesVoteOnUniswapProposal(setFeeProposalId, uint8(VoteType.Against));
+  //  _jumpToVoteComplete(setFeeProposalId);
+  //}
+
   function _passAndQueueProposals() internal {
-    _passProposals();
+    _passNewFactoryOwnerProposal();
     governor.queue(setOwnerProposalId);
+	_executeProposal(setOwnerProposalId);
+
+	_passFeeProposal();
     governor.queue(setFeeProposalId);
+	_executeProposal(setFeeProposalId);
   }
 
   function _executeProposal(uint256 _proposalId) internal {

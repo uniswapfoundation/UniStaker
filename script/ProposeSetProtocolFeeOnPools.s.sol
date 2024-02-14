@@ -6,7 +6,7 @@ import {Script} from "forge-std/Script.sol";
 import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
-contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
+abstract contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);
   // The default proposer is uf.eek.eth.
   address _proposer =
@@ -16,6 +16,12 @@ contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
   uint256[] public values;
   string[] public signatures;
   bytes[] public calldatas;
+
+  struct PoolFees {
+    address pool;
+    uint8 feeProtocol0;
+    uint8 feeProtocol1;
+  }
 
   function pushFeeSettingToProposalCalldata(
     address _v3FactoryOwner,
@@ -28,6 +34,8 @@ contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
     signatures.push("setFeeProtocol(address,uint8,uint8)");
     calldatas.push(abi.encode(_pool, _feeProtocol0, _feeProtocol1));
   }
+
+  function newPoolFeeSettings() internal virtual returns (PoolFees[] memory);
 
   function propose() internal returns (uint256 _proposalId) {
     return GOVERNOR.propose(
@@ -50,11 +58,12 @@ contract ProposeSetProtocolFeeOnPools is Script, DeployInput {
     vm.rememberKey(_proposerKey);
 
     vm.startBroadcast(_proposer);
-    // These are example pools to modify and the below `addPool` lines should be modified
-    // if different values are needed.
-    pushFeeSettingToProposalCalldata(_newV3FactoryOwner, WBTC_WETH_3000_POOL, 10, 10);
-    pushFeeSettingToProposalCalldata(_newV3FactoryOwner, DAI_WETH_3000_POOL, 10, 10);
-    pushFeeSettingToProposalCalldata(_newV3FactoryOwner, DAI_USDC_100_POOL, 10, 10);
+    PoolFees[] memory poolFees = newPoolFeeSettings();
+    for (uint256 i = 0; i < poolFees.length; i++) {
+      pushFeeSettingToProposalCalldata(
+        _newV3FactoryOwner, poolFees[i].pool, poolFees[i].feeProtocol0, poolFees[i].feeProtocol1
+      );
+    }
 
     _proposalId = propose();
     vm.stopBroadcast();

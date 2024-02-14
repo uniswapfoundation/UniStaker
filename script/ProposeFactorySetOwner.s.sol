@@ -7,7 +7,7 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 
 contract ProposeFactorySetOwner is Script, DeployInput {
-  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR); 
+  GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);
   // The default proposer is uf.eek.eth.
   address _proposer =
     vm.envOr("PROPOSER_ADDRESS", address(0x0459f41c5f09BF678D9C07331894dE31d8C22255));
