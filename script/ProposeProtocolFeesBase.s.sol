@@ -54,6 +54,9 @@ abstract contract ProposeProtocolFeesBase is Script, DeployInput {
   /// will be proposed.
   function getPoolFeeSettings() internal pure virtual returns (PoolFeeSettings[] memory);
 
+  /// @dev Create a proposal on the Uniswap Governor with targets, values, signatures, and calldatas
+  /// defined in this contracts. These values should have been built using
+  /// `pushFeeSettingToProposalCalldata`.
   function propose() internal returns (uint256 _proposalId) {
     return GOVERNOR.propose(
       targets,
@@ -74,7 +77,6 @@ abstract contract ProposeProtocolFeesBase is Script, DeployInput {
     uint256 _proposerKey = vm.envUint("PROPOSER_PRIVATE_KEY");
     vm.rememberKey(_proposerKey);
 
-    vm.startBroadcast(_proposer);
     PoolFeeSettings[] memory poolFeeSettings = getPoolFeeSettings();
     for (uint256 i = 0; i < poolFeeSettings.length; i++) {
       pushFeeSettingToProposalCalldata(
@@ -85,6 +87,7 @@ abstract contract ProposeProtocolFeesBase is Script, DeployInput {
       );
     }
 
+    vm.startBroadcast(_proposer);
     _proposalId = propose();
     vm.stopBroadcast();
     return _proposalId;

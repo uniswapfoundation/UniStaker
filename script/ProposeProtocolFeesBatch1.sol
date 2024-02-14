@@ -7,13 +7,15 @@ import {DeployInput} from "script/DeployInput.sol";
 import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
 import {ProposeProtocolFeesBase} from "script/ProposeProtocolFeesBase.s.sol";
 
+/// @dev This script will turn on protocol fees for the following pools: WBTC-WETH-3000,
+/// DAI-WETH-300, and DAI-USDC-100.
 contract ProposeProtocolFeesBatch1 is ProposeProtocolFeesBase {
   // TODO Double check these are the right pools
   address constant WBTC_WETH_3000_POOL = 0xCBCdF9626bC03E24f779434178A73a0B4bad62eD;
   address constant DAI_WETH_3000_POOL = 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
   address constant DAI_USDC_100_POOL = 0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168;
 
-  /// @return An array of pools and new fee values to set
+  /// @return A list of pool settings used to update protocol fees for each pool.
   function getPoolFeeSettings() internal pure override returns (PoolFeeSettings[] memory) {
     PoolFeeSettings[] memory poolFeeSettings = new PoolFeeSettings[](3);
     poolFeeSettings[0] = PoolFeeSettings(WBTC_WETH_3000_POOL, 10, 10);
