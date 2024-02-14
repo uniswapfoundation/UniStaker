@@ -8,13 +8,12 @@ import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.s
 import {ProposeSetProtocolFeeOnPools} from "script/ProposeSetProtocolFeeOnPools.s.sol";
 
 contract ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools is ProposeSetProtocolFeeOnPools {
-  PoolFeeSettings[] public poolFeeSettings;
-
   /// @return An array of pools and new fee values to set
-  function getPoolFeeSettings() internal override returns (PoolFeeSettings[] memory) {
-    poolFeeSettings.push(PoolFeeSettings(WBTC_WETH_3000_POOL, 10, 10));
-    poolFeeSettings.push(PoolFeeSettings(DAI_WETH_3000_POOL, 10, 10));
-    poolFeeSettings.push(PoolFeeSettings(DAI_USDC_100_POOL, 10, 10));
+  function getPoolFeeSettings() internal pure override returns (PoolFeeSettings[] memory) {
+    PoolFeeSettings[] memory poolFeeSettings = new PoolFeeSettings[](3);
+    poolFeeSettings[0] = PoolFeeSettings(WBTC_WETH_3000_POOL, 10, 10);
+    poolFeeSettings[1] = PoolFeeSettings(DAI_WETH_3000_POOL, 10, 10);
+    poolFeeSettings[2] = PoolFeeSettings(DAI_USDC_100_POOL, 10, 10);
     return poolFeeSettings;
   }
 }
