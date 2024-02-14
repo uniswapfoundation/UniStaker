@@ -48,7 +48,7 @@ contract Propose is ProposalTest {
     IUniswapPool daiUsdcPool = IUniswapPool(DAI_USDC_100_POOL);
     (,,,,, uint8 oldDaiUsdcFeeProtocol,) = daiUsdcPool.slot0();
 
-    _passAndQueueProposals();
+    _passQueueAndExecuteProposals();
 
     (,,,,, uint8 newWbtcWethFeeProtocol,) = wbtcWethPool.slot0();
     (,,,,, uint8 newDaiWethFeeProtocol,) = daiWethPool.slot0();

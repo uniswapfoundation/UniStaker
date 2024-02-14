@@ -117,7 +117,7 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     _jumpToVoteComplete(setOwnerProposalId);
   }
 
-  function _passAndQueueProposals() internal {
+  function _passQueueAndExecuteProposals() internal {
     _passNewFactoryOwnerProposal();
     governor.queue(setOwnerProposalId);
     _executeProposal(setOwnerProposalId);
