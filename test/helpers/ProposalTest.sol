@@ -63,7 +63,6 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   }
 
   function _proposePoolFee() internal {
-
     ProposeSetProtocolFeeOnFirstPools _proposeFeeScript = new ProposeSetProtocolFeeOnFirstPools();
     setFeeProposalId = _proposeFeeScript.run(address(v3FactoryOwner));
   }
@@ -117,7 +116,6 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
     _jumpToVoteComplete(setOwnerProposalId);
   }
 
-
   //function _defeatUniswapProposal() internal {
   //  _jumpToActiveProposal(setFeeProposalId);
   //  _delegatesVoteOnUniswapProposal(setOwnerProposalId, uint8(VoteType.Against));
@@ -128,11 +126,11 @@ abstract contract ProposalTest is Test, DeployInput, Constants {
   function _passAndQueueProposals() internal {
     _passNewFactoryOwnerProposal();
     governor.queue(setOwnerProposalId);
-	_executeProposal(setOwnerProposalId);
+    _executeProposal(setOwnerProposalId);
 
-	_passFeeProposal();
+    _passFeeProposal();
     governor.queue(setFeeProposalId);
-	_executeProposal(setFeeProposalId);
+    _executeProposal(setFeeProposalId);
   }
 
   function _executeProposal(uint256 _proposalId) internal {

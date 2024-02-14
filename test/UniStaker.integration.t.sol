@@ -13,7 +13,7 @@ import {IUniswapPool} from "test/helpers/interfaces/IUniswapPool.sol";
 
 contract DeployScriptTest is Test, DeployInput {
   function setUp() public {
-    vm.createSelectFork(vm.rpcUrl("mainnet"),  19_114_228);
+    vm.createSelectFork(vm.rpcUrl("mainnet"), 19_114_228);
   }
 
   function testFork_DeployStakingContracts() public {
@@ -51,7 +51,7 @@ contract Propose is ProposalTest {
     // _passAndQueueProposals();
     // _executeProposal(setOwnerProposalId);
     // _executeProposal(setFeeProposalId);
-	_passAndQueueProposals();
+    _passAndQueueProposals();
 
     (,,,,, uint8 newWbtcWethFeeProtocol,) = wbtcWethPool.slot0();
     (,,,,, uint8 newDaiWethFeeProtocol,) = daiWethPool.slot0();
