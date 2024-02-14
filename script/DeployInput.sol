@@ -12,9 +12,4 @@ contract DeployInput {
   address constant STAKE_TOKEN_ADDRESS = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
   // TODO not determined yet
   uint256 constant PAYOUT_AMOUNT = 10e18;
-
-  // TODO Double check these are the right pools
-  address constant WBTC_WETH_3000_POOL = 0xCBCdF9626bC03E24f779434178A73a0B4bad62eD;
-  address constant DAI_WETH_3000_POOL = 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
-  address constant DAI_USDC_100_POOL = 0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168;
 }
