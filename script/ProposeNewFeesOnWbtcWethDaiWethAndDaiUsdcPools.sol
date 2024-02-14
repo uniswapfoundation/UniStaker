@@ -10,6 +10,7 @@ import {ProposeSetProtocolFeeOnPools} from "script/ProposeSetProtocolFeeOnPools.
 contract ProposeNewFeesOnWbtcWethDaiWethAndDaiUsdcPools is ProposeSetProtocolFeeOnPools {
   PoolFeeSettings[] public poolFeeSettings;
 
+  /// @return An array of pools and new fee values to set
   function getPoolFeeSettings() internal override returns (PoolFeeSettings[] memory) {
     poolFeeSettings.push(PoolFeeSettings(WBTC_WETH_3000_POOL, 10, 10));
     poolFeeSettings.push(PoolFeeSettings(DAI_WETH_3000_POOL, 10, 10));
