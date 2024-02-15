@@ -8,10 +8,6 @@ import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
 import {ProposalTest} from "test/helpers/ProposalTest.sol";
 
 contract IntegrationTest is ProposalTest {
-  function _setupProposals() internal {
-    _passQueueAndExecuteProposals();
-  }
-
   function _swapTokens(address tokenIn, address tokenOut, uint256 _amount) internal {
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
       tokenIn: tokenIn,
@@ -70,86 +66,5 @@ contract IntegrationTest is ProposalTest {
   function _jumpAheadByPercentOfRewardDuration(uint256 _percent) public {
     uint256 _seconds = (_percent * uniStaker.REWARD_DURATION()) / 100;
     _jumpAhead(_seconds);
-  }
-
-  function _boundToRealisticReward(uint256 _rewardAmount)
-    public
-    pure
-    returns (uint256 _boundedRewardAmount)
-  {
-    _boundedRewardAmount = bound(_rewardAmount, 200e6, 10_000_000e18);
-  }
-
-  function _boundToRealisticStakeAndReward(uint256 _stakeAmount, uint256 _rewardAmount)
-    public
-    pure
-    returns (uint256 _boundedStakeAmount, uint256 _boundedRewardAmount)
-  {
-    _boundedStakeAmount = _boundToRealisticStake(_stakeAmount);
-    _boundedRewardAmount = _boundToRealisticReward(_rewardAmount);
-  }
-
-  function _mintTransferAndNotifyReward(uint256 _amount) public {
-    deal(address(rewardToken), rewardNotifier, _amount);
-
-    vm.startPrank(rewardNotifier);
-    rewardToken.transfer(address(uniStaker), _amount);
-    uniStaker.notifyRewardAmount(_amount);
-    vm.stopPrank();
-  }
-
-  function _mintTransferAndNotifyReward(address _rewardNotifier, uint256 _amount) public {
-    vm.assume(_rewardNotifier != address(0));
-    deal(address(rewardToken), rewardNotifier, _amount);
-
-    vm.startPrank(_rewardNotifier);
-    rewardToken.transfer(address(uniStaker), _amount);
-    uniStaker.notifyRewardAmount(_amount);
-    vm.stopPrank();
-  }
-
-  function _boundToRealisticStake(uint256 _stakeAmount)
-    public
-    pure
-    returns (uint256 _boundedStakeAmount)
-  {
-    _boundedStakeAmount = bound(_stakeAmount, 0.1e18, 25_000_000e18);
-  }
-
-  // Helper methods for dumping contract state related to rewards calculation for debugging
-  function __dumpDebugGlobalRewards() public view {
-    console2.log("reward balance");
-    console2.log(rewardToken.balanceOf(address(uniStaker)));
-    console2.log("rewardDuration");
-    console2.log(uniStaker.REWARD_DURATION());
-    console2.log("rewardEndTime");
-    console2.log(uniStaker.rewardEndTime());
-    console2.log("lastCheckpointTime");
-    console2.log(uniStaker.lastCheckpointTime());
-    console2.log("totalStake");
-    console2.log(uniStaker.totalStaked());
-    console2.log("scaledRewardRate");
-    console2.log(uniStaker.scaledRewardRate());
-    console2.log("block.timestamp");
-    console2.log(block.timestamp);
-    console2.log("rewardPerTokenAccumulatedCheckpoint");
-    console2.log(uniStaker.rewardPerTokenAccumulatedCheckpoint());
-    console2.log("lastTimeRewardDistributed()");
-    console2.log(uniStaker.lastTimeRewardDistributed());
-    console2.log("rewardPerTokenAccumulated()");
-    console2.log(uniStaker.rewardPerTokenAccumulated());
-    console2.log("-----------------------------------------------");
-  }
-
-  function __dumpDebugDepositorRewards(address _depositor) public view {
-    console2.log("earningPower[_depositor]");
-    console2.log(uniStaker.earningPower(_depositor));
-    console2.log("beneficiaryRewardPerTokenCheckpoint[_depositor]");
-    console2.log(uniStaker.beneficiaryRewardPerTokenCheckpoint(_depositor));
-    console2.log("unclaimedRewardCheckpoint[_depositor]");
-    console2.log(uniStaker.unclaimedRewardCheckpoint(_depositor));
-    console2.log("unclaimedReward(_depositor)");
-    console2.log(uniStaker.unclaimedReward(_depositor));
-    console2.log("-----------------------------------------------");
   }
 }
