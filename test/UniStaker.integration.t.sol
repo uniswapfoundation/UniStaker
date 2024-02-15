@@ -8,9 +8,7 @@ import {DeployInput} from "script/DeployInput.sol";
 
 import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
 import {UniStaker} from "src/UniStaker.sol";
-import {ProposalTest} from "test/helpers/ProposalTest.sol";
 import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
-import {IUniswapPool} from "test/helpers/interfaces/IUniswapPool.sol";
 import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
 import {IUniswapPool} from "test/helpers/interfaces/IUniswapPool.sol";
 import {PercentAssertions} from "test/helpers/PercentAssertions.sol";
@@ -83,15 +81,17 @@ contract Propose is IntegrationTest {
     _fee = uint24(bound(_fee, 0, 999_999));
     _tickSpacing = int24(bound(_tickSpacing, 1, 16_383));
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
+    IUniswapV3FactoryOwnerActions factory =
+      IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS);
+    int24 oldTickSpacing = factory.feeAmountTickSpacing(_fee);
 
     vm.prank(UNISWAP_GOVERNOR_TIMELOCK);
     v3FactoryOwner.enableFeeAmount(_fee, _tickSpacing);
-    IUniswapV3FactoryOwnerActions factory =
-      IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS);
 
-    int24 tickSpacing = factory.feeAmountTickSpacing(_fee);
-    assertEq(tickSpacing, _tickSpacing, "Tick spacing is incorrect for the set fee");
+    int24 newTickSpacing = factory.feeAmountTickSpacing(_fee);
+    assertEq(oldTickSpacing, 0, "Original tick spacing is incorrect for the set fee");
+    assertEq(newTickSpacing, _tickSpacing, "Tick spacing is incorrect for the set fee");
   }
 
   function testForkFuzz_RevertIf_EnableFeeAmountFeeIsTooHighAfterProposalIsExecuted(
@@ -100,7 +100,7 @@ contract Propose is IntegrationTest {
   ) public {
     _fee = uint24(bound(_fee, 1_000_000, type(uint24).max));
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
 
     vm.prank(UNISWAP_GOVERNOR_TIMELOCK);
     vm.expectRevert(bytes(""));
@@ -113,7 +113,7 @@ contract Propose is IntegrationTest {
   ) public {
     _tickSpacing = int24(bound(_tickSpacing, 16_383, type(int24).max));
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
 
     vm.prank(UNISWAP_GOVERNOR_TIMELOCK);
     vm.expectRevert(bytes(""));
@@ -126,7 +126,7 @@ contract Propose is IntegrationTest {
   ) public {
     _tickSpacing = int24(bound(_tickSpacing, type(int24).min, 0));
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
 
     vm.prank(UNISWAP_GOVERNOR_TIMELOCK);
     vm.expectRevert(bytes(""));
@@ -148,7 +148,7 @@ contract Propose is IntegrationTest {
     weth.approve(address(UNISWAP_V3_SWAP_ROUTER), totalWETH);
     weth.approve(address(v3FactoryOwner), totalWETH);
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _swapTokens(WETH_ADDRESS, DAI_ADDRESS, _amount);
 
     (uint128 token0Fees, uint128 token1Fees) = daiWethPool.protocolFees();
@@ -166,11 +166,11 @@ contract Propose is IntegrationTest {
   function testForkFuzz_CorrectlySwapDaiAndNotifyRewardAfterProposalIsExecuted(uint128 _amount)
     public
   {
-    // Amount should be high enough to generate fees
     IERC20 weth = IERC20(payable(WETH_ADDRESS));
     IERC20 dai = IERC20(payable(DAI_ADDRESS));
     IUniswapPool daiWethPool = IUniswapPool(DAI_WETH_3000_POOL);
 
+    // Amount should be high enough to generate fees
     _amount = uint128(bound(_amount, 1e18, 1_000_000e18));
     uint256 totalDai = _amount;
 
@@ -181,7 +181,7 @@ contract Propose is IntegrationTest {
     dai.approve(address(UNISWAP_V3_SWAP_ROUTER), totalDai);
     weth.approve(address(v3FactoryOwner), PAYOUT_AMOUNT);
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _swapTokens(DAI_ADDRESS, WETH_ADDRESS, _amount);
 
     (uint128 token0Fees, uint128 token1Fees) = daiWethPool.protocolFees();
@@ -217,7 +217,7 @@ contract Propose is IntegrationTest {
     weth.approve(address(UNISWAP_V3_SWAP_ROUTER), totalWeth);
     weth.approve(address(v3FactoryOwner), PAYOUT_AMOUNT);
 
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _swapTokens(DAI_ADDRESS, WETH_ADDRESS, totalDai);
     _swapTokens(WETH_ADDRESS, DAI_ADDRESS, _amountWeth);
 
@@ -245,7 +245,7 @@ contract Stake is IntegrationTest, PercentAssertions {
     uint128 _swapAmount
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _notifyRewards(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
 
@@ -263,7 +263,7 @@ contract Stake is IntegrationTest, PercentAssertions {
     uint128 _swapAmount
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _notifyRewards(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
 
@@ -291,7 +291,7 @@ contract Stake is IntegrationTest, PercentAssertions {
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
     _percentDuration = bound(_percentDuration, 0, 100);
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _notifyRewards(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
 
@@ -314,7 +314,7 @@ contract Stake is IntegrationTest, PercentAssertions {
     uint256 _percentDuration
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0));
-    _setupProposals();
+    _passQueueAndExecuteProposals();
     _notifyRewards(_swapAmount);
     _initialAmount = _dealStakingToken(_depositor, _initialAmount);
     _percentDuration = bound(_percentDuration, 0, 100);
