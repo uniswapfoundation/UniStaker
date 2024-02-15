@@ -12,7 +12,7 @@ contract ProposeFactorySetOwner is Script, DeployInput {
   address _proposer =
     vm.envOr("PROPOSER_ADDRESS", address(0x0459f41c5f09BF678D9C07331894dE31d8C22255));
 
-  /// @param _newV3FactoryOwner The new factory owner which should have be the recently deployed.
+  /// @param _newV3FactoryOwner The new factory owner, i.e. the recently deployed `V3FactoryOwner`.
   function proposeFactoryOwnerChangeOnGovernor(address _newV3FactoryOwner)
     internal
     returns (uint256 _proposalId)
@@ -32,9 +32,8 @@ contract ProposeFactorySetOwner is Script, DeployInput {
     );
   }
 
-  /// @param _newV3FactoryOwner The new factory owner which should have be the recently deployed.
-  /// `V3FactoryOwner`
-  /// @dev After the UniStaker and V3FactoryOwner contracts are deployed a delegate should run this
+  /// @param _newV3FactoryOwner The new factory owner, i.e. the recently deployed `V3FactoryOwner`.
+  /// @dev After the UniStaker and V3FactoryOwner contracts are deployed, a delegate should run this
   /// script to create a proposal to change the Uniswap v3 factory owner.
   function run(address _newV3FactoryOwner) public returns (uint256 _proposalId) {
     // The expectation is the key loaded here corresponds to the address of the `proposer` above.

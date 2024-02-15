@@ -60,6 +60,10 @@ contract Propose is ProposalTest {
     assertEq(oldDaiWethFeeProtocol, 0);
     assertEq(oldDaiUsdcFeeProtocol, 0);
 
+    // The below assert is based off of the slot0.feeProtocol calculation which can be found at
+    // https://github.com/Uniswap/v3-core/blob/d8b1c635c275d2a9450bd6a78f3fa2484fef73eb/contracts/UniswapV3Pool.sol#L843.
+    //
+    // The calculation is feeProtocol0 + (feeProtocol1 << 4)
     assertEq(newWbtcWethFeeProtocol, 10 + (10 << 4));
     assertEq(newDaiWethFeeProtocol, 10 + (10 << 4));
     assertEq(newDaiUsdcFeeProtocol, 10 + (10 << 4));
