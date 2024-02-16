@@ -335,7 +335,6 @@ contract Stake is IntegrationTest, PercentAssertions {
     assertLteWithinOnePercent(uniStaker.unclaimedReward(address(_depositor)), PAYOUT_AMOUNT);
   }
 
-
   function testForkFuzz_CorrectlyWithdrawAllStakedTokensAfterFullDuration(
     address _depositor,
     address _delegatee,
@@ -368,6 +367,38 @@ contract Stake is IntegrationTest, PercentAssertions {
     assertLteWithinOnePercent(uniStaker.unclaimedReward(address(_depositor)), PAYOUT_AMOUNT);
     assertLteWithinOnePercent(oldUniBalance, 0);
     assertEq(newUniBalance, _amount);
+  }
 
+  function testForkFuzz_CorrectlyWithdrawStakedTokensAfterPartialDuration(
+    address _depositor,
+    uint256 _amount,
+    address _delegatee,
+    uint128 _swapAmount,
+    uint256 _percentDuration
+  ) public {
+    vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
+    _percentDuration = bound(_percentDuration, 0, 100);
+    _passQueueAndExecuteProposals();
+    _notifyRewards(_swapAmount);
+    IERC20 uni = IERC20(STAKE_TOKEN_ADDRESS);
+    uint256 oldUniBalance = uni.balanceOf(_depositor);
+
+    _amount = _dealStakingToken(_depositor, _amount);
+
+    vm.prank(_depositor);
+    UniStaker.DepositIdentifier _depositId = uniStaker.stake(_amount, _delegatee);
+
+    _jumpAheadByPercentOfRewardDuration(100 - _percentDuration);
+    vm.prank(_depositor);
+    uniStaker.withdraw(_depositId, _amount);
+
+    uint256 newUniBalance = uni.balanceOf(_depositor);
+
+    assertLteWithinOnePercent(
+      uniStaker.unclaimedReward(address(_depositor)),
+      _percentOf(PAYOUT_AMOUNT, 100 - _percentDuration)
+    );
+    assertLteWithinOnePercent(oldUniBalance, 0);
+    assertEq(newUniBalance, _amount);
   }
 }
