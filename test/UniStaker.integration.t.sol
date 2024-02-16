@@ -81,16 +81,17 @@ contract Propose is IntegrationTest {
     _fee = uint24(bound(_fee, 0, 999_999));
     _tickSpacing = int24(bound(_tickSpacing, 1, 16_383));
 
-    _passQueueAndExecuteProposals();
     IUniswapV3FactoryOwnerActions factory =
       IUniswapV3FactoryOwnerActions(UNISWAP_V3_FACTORY_ADDRESS);
     int24 oldTickSpacing = factory.feeAmountTickSpacing(_fee);
+    // If the tick spacing is above 0 it will revert
+    vm.assume(oldTickSpacing == 0);
 
+    _passQueueAndExecuteProposals();
     vm.prank(UNISWAP_GOVERNOR_TIMELOCK);
     v3FactoryOwner.enableFeeAmount(_fee, _tickSpacing);
 
     int24 newTickSpacing = factory.feeAmountTickSpacing(_fee);
-    assertEq(oldTickSpacing, 0, "Original tick spacing is incorrect for the set fee");
     assertEq(newTickSpacing, _tickSpacing, "Tick spacing is incorrect for the set fee");
   }
 
@@ -263,6 +264,8 @@ contract Stake is IntegrationTest, PercentAssertions {
     uint128 _swapAmount
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
+    // Make sure depositor is not UniStaker
+    vm.assume(_depositor != 0xE2307e3710d108ceC7a4722a020a050681c835b3);
     _passQueueAndExecuteProposals();
     _notifyRewards(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
