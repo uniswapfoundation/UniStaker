@@ -14,4 +14,5 @@ contract Constants {
   address constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; //  mint only minters
   ISwapRouter constant UNISWAP_V3_SWAP_ROUTER =
     ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+  address constant STAKING_TOKEN_MINTER = 0x1a9C8182C09F50C8318d769245beA52c32BE35BC;
 }

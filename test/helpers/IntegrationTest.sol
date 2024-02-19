@@ -6,6 +6,7 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
 import {ProposalTest} from "test/helpers/ProposalTest.sol";
+import {IERC20Mint} from "test/helpers/interfaces/IERC20Mint.sol";
 
 contract IntegrationTest is ProposalTest {
   function _swapTokens(address tokenIn, address tokenOut, uint256 _amount) internal {
@@ -51,8 +52,10 @@ contract IntegrationTest is ProposalTest {
   }
 
   function _dealStakingToken(address _depositor, uint256 _amount) internal returns (uint256) {
-    _amount = bound(_amount, 1, 10_000_000_000e18);
-    deal(STAKE_TOKEN_ADDRESS, _depositor, _amount);
+    _amount = bound(_amount, 1, 2e25); // max mint cap
+    IERC20Mint stakeToken = IERC20Mint(STAKE_TOKEN_ADDRESS);
+    vm.prank(STAKING_TOKEN_MINTER);
+    stakeToken.mint(_depositor, _amount);
 
     vm.prank(_depositor);
     IERC20(STAKE_TOKEN_ADDRESS).approve(address(uniStaker), _amount);
