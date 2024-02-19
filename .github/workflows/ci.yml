@@ -33,6 +33,13 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
+      # https://twitter.com/PaulRBerg/status/1611116650664796166
+      - name: Generate fuzz seed with 1 week TTL
+        run: >
+          echo "FOUNDRY_FUZZ_SEED=$(
+            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
+          )" >> $GITHUB_ENV
+
       - name: Run tests
         run: forge test
 
@@ -43,6 +50,13 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      # https://twitter.com/PaulRBerg/status/1611116650664796166
+      - name: Generate fuzz seed with 1 week TTL
+        run: >
+          echo "FOUNDRY_FUZZ_SEED=$(
+            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
+          )" >> $GITHUB_ENV
 
       - name: Run coverage
         run: forge coverage --report summary --report lcov
