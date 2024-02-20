@@ -42,14 +42,14 @@ contract IntegrationTest is ProposalTest {
     return _amountDai;
   }
 
-  function _generateFees(uint128 _amount) internal {
+  function _generateFeesWithSwap(uint128 _amount) internal {
     uint256 _amountDai = _dealDaiAndApproveRouter(_amount);
     _swapTokens(DAI_ADDRESS, WETH_ADDRESS, _amountDai);
   }
 
   function _notifyRewards(uint128 _amount) internal {
     _dealPayoutTokenAndApproveFactoryOwner();
-    _generateFees(_amount);
+    _generateFeesWithSwap(_amount);
     v3FactoryOwner.claimFees(IUniswapV3PoolOwnerActions(DAI_WETH_3000_POOL), address(this), 1, 0);
   }
 
