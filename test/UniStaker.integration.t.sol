@@ -247,7 +247,7 @@ contract Stake is IntegrationTest, PercentAssertions {
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
     _passQueueAndExecuteProposals();
-    _notifyRewards(_swapAmount);
+    _swapAndClaimFees(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
 
     vm.prank(_depositor);
@@ -267,7 +267,7 @@ contract Stake is IntegrationTest, PercentAssertions {
     // Make sure depositor is not UniStaker
     vm.assume(_depositor != 0xE2307e3710d108ceC7a4722a020a050681c835b3);
     _passQueueAndExecuteProposals();
-    _notifyRewards(_swapAmount);
+    _swapAndClaimFees(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
 
     vm.prank(_depositor);
@@ -295,7 +295,7 @@ contract Stake is IntegrationTest, PercentAssertions {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
     _percentDuration = bound(_percentDuration, 0, 100);
     _passQueueAndExecuteProposals();
-    _notifyRewards(_swapAmount);
+    _swapAndClaimFees(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
 
     vm.prank(_depositor);
@@ -318,7 +318,7 @@ contract Stake is IntegrationTest, PercentAssertions {
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0));
     _passQueueAndExecuteProposals();
-    _notifyRewards(_swapAmount);
+    _swapAndClaimFees(_swapAmount);
     _initialAmount = _dealStakingToken(_depositor, _initialAmount);
     _percentDuration = bound(_percentDuration, 0, 100);
 

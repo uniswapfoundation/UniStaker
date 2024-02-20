@@ -47,7 +47,7 @@ contract IntegrationTest is ProposalTest {
     _swapTokens(DAI_ADDRESS, WETH_ADDRESS, _amountDai);
   }
 
-  function _notifyRewards(uint128 _amount) internal {
+  function _swapAndClaimFees(uint128 _amount) internal {
     _dealPayoutTokenAndApproveFactoryOwner();
     _generateFeesWithSwap(_amount);
     v3FactoryOwner.claimFees(IUniswapV3PoolOwnerActions(DAI_WETH_3000_POOL), address(this), 1, 0);
