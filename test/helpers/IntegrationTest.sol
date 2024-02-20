@@ -27,7 +27,7 @@ contract IntegrationTest is ProposalTest {
     UNISWAP_V3_SWAP_ROUTER.exactInputSingle(params);
   }
 
-  function _setupPayoutToken() internal {
+  function _dealPayoutTokenAndApproveFactoryOwner() internal {
     IERC20 weth = IERC20(payable(WETH_ADDRESS));
     weth.approve(address(v3FactoryOwner), PAYOUT_AMOUNT);
     vm.deal(address(this), PAYOUT_AMOUNT);
@@ -48,7 +48,7 @@ contract IntegrationTest is ProposalTest {
   }
 
   function _notifyRewards(uint128 _amount) internal {
-    _setupPayoutToken();
+    _dealPayoutTokenAndApproveFactoryOwner();
     _generateFees(_amount);
     v3FactoryOwner.claimFees(IUniswapV3PoolOwnerActions(DAI_WETH_3000_POOL), address(this), 1, 0);
   }
