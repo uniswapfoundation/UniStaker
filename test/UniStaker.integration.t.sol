@@ -325,13 +325,13 @@ contract Stake is IntegrationTest, PercentAssertions {
     vm.prank(_depositor);
     UniStaker.DepositIdentifier _depositId = uniStaker.stake(_initialAmount, _delegatee);
 
-    _jumpAheadByPercentOfRewardDuration(100 - _percentDuration);
+    _jumpAheadByPercentOfRewardDuration(_percentDuration);
 
     _additionalAmount = _dealStakingToken(_depositor, _additionalAmount);
     vm.prank(_depositor);
     uniStaker.stakeMore(_depositId, _additionalAmount);
 
-    _jumpAheadByPercentOfRewardDuration(_percentDuration);
+    _jumpAheadByPercentOfRewardDuration(100 - _percentDuration);
     assertLteWithinOnePercent(uniStaker.unclaimedReward(address(_depositor)), PAYOUT_AMOUNT);
   }
 }
