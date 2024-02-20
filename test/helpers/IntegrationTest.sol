@@ -34,7 +34,7 @@ contract IntegrationTest is ProposalTest {
     deal(address(weth), address(this), PAYOUT_AMOUNT);
   }
 
-  function _setupSwapToken(uint128 _amountDai) internal returns (uint256) {
+  function _dealDaiAndApproveRouter(uint128 _amountDai) internal returns (uint256) {
     _amountDai = uint128(bound(_amountDai, 1e18, 1_000_000e18));
     IERC20 dai = IERC20(payable(DAI_ADDRESS));
     dai.approve(address(UNISWAP_V3_SWAP_ROUTER), _amountDai);
@@ -43,7 +43,7 @@ contract IntegrationTest is ProposalTest {
   }
 
   function _generateFees(uint128 _amount) internal {
-    uint256 _amountDai = _setupSwapToken(_amount);
+    uint256 _amountDai = _dealDaiAndApproveRouter(_amount);
     _swapTokens(DAI_ADDRESS, WETH_ADDRESS, _amountDai);
   }
 
