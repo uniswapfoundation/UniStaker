@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.23;
 
-import {console2} from "forge-std/Test.sol";
+import {console2, stdStorage, StdStorage} from "forge-std/Test.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
@@ -9,6 +9,8 @@ import {ProposalTest} from "test/helpers/ProposalTest.sol";
 import {IERC20Mint} from "test/helpers/interfaces/IERC20Mint.sol";
 
 contract IntegrationTest is ProposalTest {
+  using stdStorage for StdStorage;
+
   function _swapTokens(address tokenIn, address tokenOut, uint256 _amount) internal {
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
       tokenIn: tokenIn,
@@ -52,8 +54,10 @@ contract IntegrationTest is ProposalTest {
   }
 
   function _dealStakingToken(address _depositor, uint256 _amount) internal returns (uint256) {
+    stdstore.target(STAKE_TOKEN_ADDRESS).sig("mintingAllowedAfter()").checked_write(uint256(0));
     _amount = bound(_amount, 1, 2e25); // max mint cap
     IERC20Mint stakeToken = IERC20Mint(STAKE_TOKEN_ADDRESS);
+
     vm.prank(STAKING_TOKEN_MINTER);
     stakeToken.mint(_depositor, _amount);
 

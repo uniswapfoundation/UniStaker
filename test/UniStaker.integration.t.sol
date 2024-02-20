@@ -317,22 +317,17 @@ contract Stake is IntegrationTest, PercentAssertions {
     uint256 _percentDuration
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0));
-
-    _additionalAmount = _dealStakingToken(_depositor, _additionalAmount);
-    vm.warp(block.timestamp + 1 days * 365);
-    _initialAmount = _dealStakingToken(_depositor, _initialAmount);
-
     _passQueueAndExecuteProposals();
     _notifyRewards(_swapAmount);
+    _initialAmount = _dealStakingToken(_depositor, _initialAmount);
     _percentDuration = bound(_percentDuration, 0, 100);
+
     vm.prank(_depositor);
     UniStaker.DepositIdentifier _depositId = uniStaker.stake(_initialAmount, _delegatee);
 
     _jumpAheadByPercentOfRewardDuration(100 - _percentDuration);
 
-    vm.prank(_depositor);
-    IERC20(STAKE_TOKEN_ADDRESS).approve(address(uniStaker), _additionalAmount);
-
+    _additionalAmount = _dealStakingToken(_depositor, _additionalAmount);
     vm.prank(_depositor);
     uniStaker.stakeMore(_depositId, _additionalAmount);
 
