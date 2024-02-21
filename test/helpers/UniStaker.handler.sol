@@ -34,9 +34,15 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   uint256 public ghost_depositCount;
   uint256 public ghost_rewardsClaimed;
   uint256 public ghost_rewardsNotified;
+  uint256 public ghost_prevRewardPerTokenAccumulatedCheckpoint;
 
   modifier countCall(bytes32 key) {
     calls[key]++;
+    _;
+  }
+
+  modifier doCheckpoints() {
+    _checkpoint_ghost_prevRewardPerTokenAccumulatedCheckpoint();
     _;
   }
 
@@ -57,7 +63,11 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     deal(address(rewardToken), _to, _amount, true);
   }
 
-  function enableRewardNotifier(address _notifier) public countCall("enableRewardNotifier") {
+  function enableRewardNotifier(address _notifier)
+    public
+    countCall("enableRewardNotifier")
+    doCheckpoints
+  {
     vm.assume(_notifier != address(0));
     _rewardNotifiers.add(_notifier);
     vm.prank(admin);
@@ -67,10 +77,12 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   function notifyRewardAmount(uint256 _amount, uint256 _actorSeed)
     public
     countCall("notifyRewardAmount")
+    doCheckpoints
   {
     _useActor(_rewardNotifiers, _actorSeed);
     vm.assume(currentActor != address(0));
     _amount = bound(_amount, 0, 100_000_000e18);
+    ghost_prevRewardPerTokenAccumulatedCheckpoint = uniStaker.rewardPerTokenAccumulatedCheckpoint();
     _mintRewardToken(currentActor, _amount);
     vm.startPrank(currentActor);
     rewardToken.transfer(address(uniStaker), _amount);
@@ -83,6 +95,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   function stake(uint256 _amount, address _delegatee, address _beneficiary)
     public
     countCall("stake")
+    doCheckpoints
   {
     _createDepositor();
 
@@ -109,6 +122,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   function validStakeMore(uint256 _amount, uint256 _actorSeed, uint256 _actorDepositSeed)
     public
     countCall("validStakeMore")
+    doCheckpoints
   {
     _useActor(_depositors, _actorSeed);
     vm.assume(currentActor != address(0));
@@ -128,6 +142,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   function validWithdraw(uint256 _amount, uint256 _actorSeed, uint256 _actorDepositSeed)
     public
     countCall("validWithdraw")
+    doCheckpoints
   {
     _useActor(_depositors, _actorSeed);
     vm.assume(currentActor != address(0));
@@ -142,7 +157,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     ghost_stakeWithdrawn += _amount;
   }
 
-  function claimReward(uint256 _actorSeed) public countCall("claimReward") {
+  function claimReward(uint256 _actorSeed) public countCall("claimReward") doCheckpoints {
     _useActor(_beneficiaries, _actorSeed);
     vm.startPrank(currentActor);
     uint256 rewardsClaimed = uniStaker.unclaimedRewardCheckpoint(currentActor);
@@ -151,7 +166,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     ghost_rewardsClaimed += rewardsClaimed;
   }
 
-  function warpAhead(uint256 _seconds) public countCall("warpAhead") {
+  function warpAhead(uint256 _seconds) public countCall("warpAhead") doCheckpoints {
     _seconds = bound(_seconds, 0, uniStaker.REWARD_DURATION() * 2);
     skip(_seconds);
   }
@@ -190,6 +205,10 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     returns (uint256)
   {
     return _delegates.reduce(acc, func);
+  }
+
+  function _checkpoint_ghost_prevRewardPerTokenAccumulatedCheckpoint() internal {
+    ghost_prevRewardPerTokenAccumulatedCheckpoint = uniStaker.rewardPerTokenAccumulatedCheckpoint();
   }
 
   function callSummary() external view {

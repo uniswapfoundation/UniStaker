@@ -68,10 +68,18 @@ contract UniStakerInvariants is Test {
     );
   }
 
-  function invariant_Unclaimed_reward_LTE_total_rewards() public {
+  function invariant_Sum_of_unclaimed_reward_should_be_less_than_or_equal_to_total_rewards() public {
     assertLe(
       handler.reduceBeneficiaries(0, this.accumulateUnclaimedReward),
       rewardToken.balanceOf(address(uniStaker))
+    );
+  }
+
+  function invariant_RewardPerTokenAccumulatedCheckpoint_should_be_greater_or_equal_to_the_last_rewardPerTokenAccumulatedCheckpoint(
+  ) public {
+    assertGe(
+      uniStaker.rewardPerTokenAccumulatedCheckpoint(),
+      handler.ghost_prevRewardPerTokenAccumulatedCheckpoint()
     );
   }
 
