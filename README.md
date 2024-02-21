@@ -1,14 +1,13 @@
 # UniStaker
 
 <div align="center">
-	<img width="500" src="readme/unistaker.webp" alt="Delegated Liquidity Banner">
+	<img width="500" src="readme/unistaker.webp" alt="UniStaker Banner">
 	<br />
 </div>
 
 <p align="center">
 	<b>Uniswap V3 protocol fee collection and distribution via UNI staking.</b>
 </p>
-
 
 ## What it does
 
@@ -32,17 +31,62 @@ The staking system allows for other contracts to be added as revenue sources for
 
 The system consists of two core contracts which are designed to be deployed into, and interact with, the existing ecosystem of Uniswap contracts operating onchain. The two new contracts are `V3FactoryOwner.sol` and the `UniStaker.sol`. The former manages ownership of the existing Uniswap V3 Factory contract, while the latter manages staking mechanics and the distribution of rewards to stakers.
 
+```mermaid
+flowchart TD
+    A[Uniswap Governance] -->|"
+    Can set fees on specific pools
+
+    Can not collect fees
+    Can not transfer ownership
+    "| A1[V3FactoryOwner]:::new
+    A1 --> B["Uniswap V3 Factory"]
+    B --> C[(Pool 1)]
+    B --> D[(Pool 2)]
+    B --> E[...]
+    style E fill:transparent,stroke:transparent,stroke-width:4px
+    classDef new stroke:#F7F,padding:10px,stroke-width:3px,line-height:3.5,font-weight:bold
+    B --> F[(Pool N)]
+    B ..-> |"Collect fees on fee-enabled pools via V3FactoryOwner.claimFees"|A1
+    A1 ..-> |"Rewards immediately deposited into UniStaker"|GG[UniStaker]:::new
+    G((UNI holders)) --> |"
+    Delegate and stake UNI to
+    earn rewards from fee-enabled pools
+
+    "|GG
+    G ---> |Vote on governance proposals|A
+    M((MEV searcher)) <..-> |"Collect fees by sending WETH
+    to be used as rewards"|A1
+```
+
 ### `V3FactoryOwner`
 
 The [`V3FactoryOwner`](src/V3FactoryOwner.sol) contract is designed to act as the owner of the Uniswap V3 Factory. Governance can opt to transfer ownership of the factory to an instance of this contract. While the owner of the factory becomes the `V3FactoryOwner`, the admin of the `V3FactoryOwner` will be governance. In this way, governance retains the right to configure pool protocol fees via permissioned passthrough methods.
 
-The `V3FactoryOwner` has a public method which enables *anyone* to claim the protocol fees which have accrued for a given pool. In order to claim the fees, the caller must pay a fixed amount of a token defined when the `V3FactoryOwner` is deployed (the `PAYOUT_TOKEN`). This sets up a continuous "race" wherein external parties will compete to claim the fees accrued by each pool once it becomes profitable to do so.
+The `V3FactoryOwner` has a public method which enables _anyone_ to claim the protocol fees which have accrued for a given pool. In order to claim the fees, the caller must pay a fixed amount of a token defined when the `V3FactoryOwner` is deployed (the `PAYOUT_TOKEN`). This sets up a continuous "race" wherein external parties will compete to claim the fees accrued by each pool once it becomes profitable to do so.
 
 Concretely, if the `PAYOUT_TOKEN` was WETH, a third party would claim a pool's fees by paying for them in WETH, which would be sent to the staking contract for distribution to stakers.
 
 ### `UniStaker`
 
 The mechanics of the [`UniStaker`](src/UniStaker.sol) contract are heavily inspired by the Synthetix [`StakingRewards.sol`](https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol) implementation. The contract manages the distribution of rewards to stakers by dripping those rewards out over a fixed period of time. This period restarts if more rewards are distributed (e.g. by the public fee claiming mechanism on `V3FactoryOwner` detailed above). This Synthetix style staking mechanism has been widely discussed in the DeFi ecosystem and should be reviewed by any party seeking to understand the mechanics of UniStaker.
+
+```mermaid
+flowchart LR
+
+    A[UniStaker] --> |"Hold deposit tokens and
+    delegate on behalf of depositor"|SurrogateFork
+    SurrogateFork --> |Yes|Surrogate["Surrogate contract for delegate
+        (Holds stake deposits, delegates
+		to delegate address)"]
+    SurrogateFork --> |"No, deploy new surrogate"|Surrogate
+    A1((UNI holder)) --> |"Stake UNI
+    Withdraw UNI"|A
+    A .-> |Earns rewards|B(("Beneficiary
+    (original holder or
+    other address)"))
+    SurrogateFork{{"Was a surrogate contract previously
+    deployed for this delegate?"}}
+```
 
 The UniStaker contract diverges from `StakingRewards.sol` in several ways:
 
@@ -60,7 +104,7 @@ Finally, UniStaker is designed to accept rewards from any number of addresses de
 
 These contracts were built and tested with care by the team at [ScopeLift](https://scopelift.co).
 
-###  Build and test
+### Build and test
 
 This project uses [Foundry](https://github.com/foundry-rs/foundry). Follow [these instructions](https://github.com/foundry-rs/foundry#installation) to install it.
 
