@@ -127,7 +127,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   IERC20Delegates public immutable STAKE_TOKEN;
 
   /// @notice Length of time over which rewards sent to this contract are distributed to stakers.
-  uint256 public constant REWARD_DURATION = 7 days;
+  uint256 public constant REWARD_DURATION = 30 days;
 
   /// @notice Scale factor used in reward calculation math to reduce rounding errors caused by
   /// truncation during division.
