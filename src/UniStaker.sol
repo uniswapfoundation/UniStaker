@@ -216,6 +216,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @notice Timestamp representing the last time at which rewards have been distributed, which is
   /// either the current timestamp (because rewards are still actively being streamed) or the time
   /// at which the reward duration ended (because all rewards to date have already been streamed).
+  /// @return Timestamp representing the last time at which rewards have been distributed.
   function lastTimeRewardDistributed() public view returns (uint256) {
     if (rewardEndTime <= block.timestamp) return rewardEndTime;
     else return block.timestamp;
@@ -224,6 +225,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @notice Live value of the global reward per token accumulator. It is the sum of the last
   /// checkpoint value with the live calculation of the value that has accumulated in the interim.
   /// This number should monotonically increase over time as more rewards are distributed.
+  /// @return Live value of the global reward per token accumulator.
   function rewardPerTokenAccumulated() public view returns (uint256) {
     if (totalStaked == 0) return rewardPerTokenAccumulatedCheckpoint;
 
@@ -235,6 +237,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// sum of the last checkpoint value of their unclaimed rewards with the live calculation of the
   /// rewards that have accumulated for this account in the interim. This value can only increase,
   /// until it is reset to zero once the beneficiary account claims their unearned rewards.
+  /// @return Live value of the unclaimed rewards earned by a given beneficiary account.
   function unclaimedReward(address _beneficiary) public view returns (uint256) {
     return unclaimedRewardCheckpoint[_beneficiary]
       + (
@@ -550,9 +553,20 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   }
 
   /// @notice Called by an authorized rewards notifier to alert the staking contract that a new
-  /// reward has been transferred to it. Note the reward must already have been transferred to this
-  /// staking contract before the rewards notifier calls this method.
+  /// reward has been transferred to it. It is assumed that the reward has already been
+  /// transferred to this staking contract before the rewards notifier calls this method.
   /// @param _amount Quantity of reward tokens the staking contract is being notified of.
+  /// @dev It is critical that only well behaved contracts are approved by the admin to call this
+  /// method, for two reasons.
+  ///
+  /// 1. A misbehaving contract could grief stakers by frequently notifying this contract of tiny
+  ///    rewards, thereby continuously stretching out the time duration over which real rewards are
+  ///    distributed. It is required that reward notifiers supply reasonable rewards at reasonable
+  ///    intervals.
+  //  2. A misbehaving contract could falsely notify this contract of rewards that were not actually
+  ///    distributed, creating a shortfall for those claiming their rewards after others. It is
+  ///    required that a notifier contract always transfers the `_amount` to this contract before
+  ///    calling this method.
   function notifyRewardAmount(uint256 _amount) external {
     if (!isRewardNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
 
@@ -571,6 +585,12 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     lastCheckpointTime = block.timestamp;
 
     if ((scaledRewardRate / SCALE_FACTOR) == 0) revert UniStaker__InvalidRewardRate();
+
+    // This check cannot _guarantee_ sufficient rewards have been transferred to the contract,
+    // because it cannot isolate the unclaimed rewards owed to stakers left in the balance. While
+    // this check is useful for preventing degenerate cases, it is not sufficient. Therefore, it is
+    // critical that only safe reward notifier contracts are approved to call this method by the
+    // admin.
     if (
       (scaledRewardRate * REWARD_DURATION) > (REWARD_TOKEN.balanceOf(address(this)) * SCALE_FACTOR)
     ) revert UniStaker__InsufficientRewardBalance();
