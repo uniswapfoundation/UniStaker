@@ -19,7 +19,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   address public admin;
 
   // actors, deposit state
-  address internal currentActor;
+  address internal _currentActor;
   AddressSet internal _depositors;
   AddressSet internal _delegates;
   AddressSet internal _beneficiaries;
@@ -80,11 +80,11 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     doCheckpoints
   {
     _useActor(_rewardNotifiers, _actorSeed);
-    vm.assume(currentActor != address(0));
+    vm.assume(_currentActor != address(0));
     _amount = bound(_amount, 0, 100_000_000e18);
     ghost_prevRewardPerTokenAccumulatedCheckpoint = uniStaker.rewardPerTokenAccumulatedCheckpoint();
-    _mintRewardToken(currentActor, _amount);
-    vm.startPrank(currentActor);
+    _mintRewardToken(_currentActor, _amount);
+    vm.startPrank(_currentActor);
     rewardToken.transfer(address(uniStaker), _amount);
     uniStaker.notifyRewardAmount(_amount);
     vm.stopPrank();
@@ -105,15 +105,15 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     _amount = bound(_amount, 0, 100_000_000e18);
 
     // assume user has stake amount
-    _mintStakeToken(currentActor, _amount);
+    _mintStakeToken(_currentActor, _amount);
 
-    vm.startPrank(currentActor);
+    vm.startPrank(_currentActor);
     stakeToken.approve(address(uniStaker), _amount);
     uniStaker.stake(_amount, _delegatee, _beneficiary);
     vm.stopPrank();
 
     // update handler state
-    _depositIds[currentActor].push(ghost_depositCount);
+    _depositIds[_currentActor].push(ghost_depositCount);
     ghost_depositCount++;
     _surrogates.add(address(uniStaker.surrogates(_delegatee)));
     ghost_stakeSum += _amount;
@@ -125,13 +125,13 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     doCheckpoints
   {
     _useActor(_depositors, _actorSeed);
-    vm.assume(currentActor != address(0));
-    vm.assume(_depositIds[currentActor].length > 0);
+    vm.assume(_currentActor != address(0));
+    vm.assume(_depositIds[_currentActor].length > 0);
     UniStaker.DepositIdentifier _depositId =
       UniStaker.DepositIdentifier.wrap(_getActorRandDepositId(_actorDepositSeed));
     (uint256 _balance,,,) = uniStaker.deposits(_depositId);
     _amount = bound(_amount, 0, _balance);
-    vm.startPrank(currentActor);
+    vm.startPrank(_currentActor);
     stakeToken.approve(address(uniStaker), _amount);
     uniStaker.stakeMore(_depositId, _amount);
     vm.stopPrank();
@@ -145,13 +145,13 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     doCheckpoints
   {
     _useActor(_depositors, _actorSeed);
-    vm.assume(currentActor != address(0));
-    vm.assume(_depositIds[currentActor].length > 0);
+    vm.assume(_currentActor != address(0));
+    vm.assume(_depositIds[_currentActor].length > 0);
     UniStaker.DepositIdentifier _depositId =
       UniStaker.DepositIdentifier.wrap(_getActorRandDepositId(_actorDepositSeed));
     (uint256 _balance,,,) = uniStaker.deposits(_depositId);
     _amount = bound(_amount, 0, _balance);
-    vm.startPrank(currentActor);
+    vm.startPrank(_currentActor);
     uniStaker.withdraw(_depositId, _amount);
     vm.stopPrank();
     ghost_stakeWithdrawn += _amount;
@@ -159,8 +159,8 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
 
   function claimReward(uint256 _actorSeed) public countCall("claimReward") doCheckpoints {
     _useActor(_beneficiaries, _actorSeed);
-    vm.startPrank(currentActor);
-    uint256 rewardsClaimed = uniStaker.unclaimedRewardCheckpoint(currentActor);
+    vm.startPrank(_currentActor);
+    uint256 rewardsClaimed = uniStaker.unclaimedRewardCheckpoint(_currentActor);
     uniStaker.claimReward();
     vm.stopPrank();
     ghost_rewardsClaimed += rewardsClaimed;
@@ -172,18 +172,18 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   }
 
   function _getActorRandDepositId(uint256 _randomDepositSeed) internal view returns (uint256) {
-    return _depositIds[currentActor][_randomDepositSeed % _depositIds[currentActor].length];
+    return _depositIds[_currentActor][_randomDepositSeed % _depositIds[_currentActor].length];
   }
 
   function _createDepositor() internal {
-    currentActor = msg.sender;
+    _currentActor = msg.sender;
     // Surrogates can't stake. We won't include them as potential depositors.
-    vm.assume(!_surrogates.contains(currentActor));
+    vm.assume(!_surrogates.contains(_currentActor));
     _depositors.add(msg.sender);
   }
 
   function _useActor(AddressSet storage _set, uint256 _randomActorSeed) internal {
-    currentActor = _set.rand(_randomActorSeed);
+    _currentActor = _set.rand(_randomActorSeed);
   }
 
   function reduceDepositors(uint256 acc, function(uint256,address) external returns (uint256) func)
