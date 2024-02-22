@@ -34,7 +34,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       # https://twitter.com/PaulRBerg/status/1611116650664796166
-      - name: Generate fuzz seed with 1 week TTL
+      - name: Generate fuzz seed with 1 day TTL
         run: >
           echo "FOUNDRY_FUZZ_SEED=$(
             echo $(($EPOCHSECONDS - $EPOCHSECONDS % 86400))
@@ -52,7 +52,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       # https://twitter.com/PaulRBerg/status/1611116650664796166
-      - name:  Recycle the fuzz seed from the test run
+      - name: Generate fuzz seed with 1 day TTL
         run: >
           echo "FOUNDRY_FUZZ_SEED=$(
             echo $(($EPOCHSECONDS - $EPOCHSECONDS % 86400))
