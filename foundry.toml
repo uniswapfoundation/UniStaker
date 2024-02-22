@@ -49,4 +49,4 @@
   fail_on_revert = false
   include_push_bytes = true
   include_storage = true
-  runs = 100
+  runs = 256
