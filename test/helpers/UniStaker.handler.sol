@@ -91,7 +91,6 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     ghost_rewardsNotified += _amount;
   }
 
-  // TODO: distinguish between valid and invalid stake
   function stake(uint256 _amount, address _delegatee, address _beneficiary)
     public
     countCall("stake")
@@ -101,7 +100,6 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
 
     _beneficiaries.add(_beneficiary);
     _delegates.add(_delegatee);
-    // todo: adjust upper bound
     _amount = bound(_amount, 0, 100_000_000e18);
 
     // assume user has stake amount
@@ -138,7 +136,6 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     ghost_stakeSum += _amount;
   }
 
-  // TODO: include invalid withdrawals
   function validWithdraw(uint256 _amount, uint256 _actorSeed, uint256 _actorDepositSeed)
     public
     countCall("validWithdraw")
