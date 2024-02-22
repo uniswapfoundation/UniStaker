@@ -1,6 +1,5 @@
 [profile.default]
   evm_version = "paris"
-  fuzz = { seed = "1" }
   optimizer = true
   optimizer_runs = 10_000_000
   remappings = [

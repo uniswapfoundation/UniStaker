@@ -37,7 +37,7 @@ jobs:
       - name: Generate fuzz seed with 1 week TTL
         run: >
           echo "FOUNDRY_FUZZ_SEED=$(
-            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
+            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 86400))
           )" >> $GITHUB_ENV
 
       - name: Run tests
@@ -55,7 +55,7 @@ jobs:
       - name:  Recycle the fuzz seed from the test run
         run: >
           echo "FOUNDRY_FUZZ_SEED=$(
-            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
+            echo $(($EPOCHSECONDS - $EPOCHSECONDS % 86400))
           )" >> $GITHUB_ENV
 
       - name: Run coverage
@@ -99,6 +99,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          cache: false
 
       - name: Install scopelint
         uses: engineerd/configurator@v0.0.8
