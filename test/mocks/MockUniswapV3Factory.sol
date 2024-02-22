@@ -9,6 +9,10 @@ contract MockUniswapV3Factory is IUniswapV3FactoryOwnerActions {
   uint24 public lastParam__enableFeeAmount_fee;
   int24 public lastParam__enableFeeAmount_tickSpacing;
 
+  function feeAmountTickSpacing(uint24) external view returns (int24) {
+    return lastParam__enableFeeAmount_tickSpacing;
+  }
+
   function owner() external view returns (address) {
     return lastParam__setOwner_owner;
   }
