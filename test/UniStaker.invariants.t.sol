@@ -17,7 +17,6 @@ contract UniStakerInvariants is Test {
   address rewardsNotifier;
 
   function setUp() public {
-    // deploy UniStaker
     rewardToken = new ERC20Fake();
     vm.label(address(rewardToken), "Rewards Token");
 
