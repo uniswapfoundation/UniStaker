@@ -2648,6 +2648,50 @@ contract SetAdmin is UniStakerTest {
   }
 }
 
+contract InvalidateNonce is UniStakerTest {
+   using stdStorage for StdStorage;
+
+  // Calll increments nonce
+  function testFuzz_SucessfullyInvalidateNonceForMsgSender(address _caller, uint256 _initialNonce) public {
+		  vm.assume(_caller != address(0));
+		  vm.assume(_initialNonce != type(uint256).max);
+
+		  // Set nonces in storage assert incremented by one
+          stdstore
+              .target(address(uniStaker))
+              .sig("nonces(address)")
+              .with_key(_caller)
+              .checked_write(_initialNonce);
+
+		  vm.prank(_caller);
+		  uniStaker.invalidateNonce();
+
+		  uint256 currentNonce = uniStaker.nonces(_caller);
+
+		  assertEq(currentNonce, _initialNonce + 1, "Current nonce is incorrect");
+  }
+
+  // Outside nonce owner cannot updateNonce
+  function testFuzz_NeedName(address _caller, address _nonceOwner, uint256 _initialNonce) public {
+		  vm.assume(_caller != address(0));
+		  vm.assume(_initialNonce != type(uint256).max);
+
+		  // Set nonces in storage assert incremented by one
+          stdstore
+              .target(address(uniStaker))
+              .sig("nonces(address)")
+              .with_key(_nonceOwner)
+              .checked_write(_initialNonce);
+
+		  vm.prank(_caller);
+		  uniStaker.invalidateNonce();
+  }
+
+  // It can be called multiple times
+  // It will invalidate StakeOnBehalf
+  // It will invalidate other stake on behalf methods
+}
+
 contract UniStakerRewardsTest is UniStakerTest {
   // Helper methods for dumping contract state related to rewards calculation for debugging
   function __dumpDebugGlobalRewards() public view {
