@@ -157,7 +157,8 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   function claimReward(uint256 _actorSeed) public countCall("claimReward") doCheckpoints {
     _useActor(_beneficiaries, _actorSeed);
     vm.startPrank(_currentActor);
-    uint256 rewardsClaimed = uniStaker.unclaimedRewardCheckpoint(_currentActor);
+    uint256 rewardsClaimed =
+      uniStaker.scaledUnclaimedRewardCheckpoint(_currentActor) / uniStaker.SCALE_FACTOR();
     uniStaker.claimReward();
     vm.stopPrank();
     ghost_rewardsClaimed += rewardsClaimed;

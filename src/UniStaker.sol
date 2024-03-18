@@ -174,12 +174,12 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// used to calculate the interim rewards earned by given account.
   mapping(address account => uint256) public beneficiaryRewardPerTokenCheckpoint;
 
-  /// @notice Checkpoint of the unclaimed rewards earned by a given beneficiary. This value is
-  /// stored any time an action is taken that specifically impacts the rate at which rewards are
-  /// earned by a given beneficiary account. Total unclaimed rewards for an account are thus this
-  /// value plus all rewards earned after this checkpoint was taken. This value is reset to zero
-  /// when a beneficiary account claims their earned rewards.
-  mapping(address account => uint256 amount) public unclaimedRewardCheckpoint;
+  /// @notice Checkpoint of the unclaimed rewards earned by a given beneficiary with the scale
+  /// factor included. This value is stored any time an action is taken that specifically impacts
+  /// the rate at which rewards are earned by a given beneficiary account. Total unclaimed rewards
+  /// for an account are thus this value plus all rewards earned after this checkpoint was taken.
+  /// This value is reset to zero when a beneficiary account claims their earned rewards.
+  mapping(address account => uint256 amount) public scaledUnclaimedRewardCheckpoint;
 
   /// @notice Maps addresses to whether they are authorized to call `notifyRewardAmount`.
   mapping(address rewardNotifier => bool) public isRewardNotifier;
@@ -237,13 +237,14 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// sum of the last checkpoint value of their unclaimed rewards with the live calculation of the
   /// rewards that have accumulated for this account in the interim. This value can only increase,
   /// until it is reset to zero once the beneficiary account claims their unearned rewards.
+  ///
+  /// Note that the contract tracks the unclaimed rewards internally with the scale factor
+  /// included, in order to avoid the accrual of precision losses as users takes actions that
+  /// cause rewards to be checkpointed. This external helper method is useful for integrations, and
+  /// returns the value after it  has been scaled down to the reward token's raw decimal amount.
   /// @return Live value of the unclaimed rewards earned by a given beneficiary account.
-  function unclaimedReward(address _beneficiary) public view returns (uint256) {
-    return unclaimedRewardCheckpoint[_beneficiary]
-      + (
-        earningPower[_beneficiary]
-          * (rewardPerTokenAccumulated() - beneficiaryRewardPerTokenCheckpoint[_beneficiary])
-      ) / SCALE_FACTOR;
+  function unclaimedReward(address _beneficiary) external view returns (uint256) {
+    return _scaledUnclaimedReward(_beneficiary) / SCALE_FACTOR;
   }
 
   /// @notice Stake tokens to a new deposit. The caller must pre-approve the staking contract to
@@ -598,6 +599,20 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     emit RewardNotified(_amount, msg.sender);
   }
 
+  /// @notice Live value of the unclaimed rewards earned by a given beneficiary account with the
+  /// scale factor included. Used internally for calculating reward checkpoints while minimizing
+  /// precision loss.
+  /// @return Live value of the unclaimed rewards earned by a given beneficiary account with the
+  /// scale factor included.
+  /// @dev See documentation for the public, non-scaled `unclaimedReward` method for more details.
+  function _scaledUnclaimedReward(address _beneficiary) internal view returns (uint256) {
+    return scaledUnclaimedRewardCheckpoint[_beneficiary]
+      + (
+        earningPower[_beneficiary]
+          * (rewardPerTokenAccumulated() - beneficiaryRewardPerTokenCheckpoint[_beneficiary])
+      );
+  }
+
   /// @notice Internal method which finds the existing surrogate contract—or deploys a new one if
   /// none exists—for a given delegatee.
   /// @param _delegatee Account for which a surrogate is sought.
@@ -741,9 +756,9 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     _checkpointGlobalReward();
     _checkpointReward(_beneficiary);
 
-    uint256 _reward = unclaimedRewardCheckpoint[_beneficiary];
+    uint256 _reward = scaledUnclaimedRewardCheckpoint[_beneficiary] / SCALE_FACTOR;
     if (_reward == 0) return;
-    unclaimedRewardCheckpoint[_beneficiary] = 0;
+    scaledUnclaimedRewardCheckpoint[_beneficiary] = 0;
     emit RewardClaimed(_beneficiary, _reward);
 
     SafeERC20.safeTransfer(REWARD_TOKEN, _beneficiary, _reward);
@@ -762,7 +777,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// accumulator has been checkpointed. It assumes the global `rewardPerTokenCheckpoint` is up to
   /// date.
   function _checkpointReward(address _beneficiary) internal {
-    unclaimedRewardCheckpoint[_beneficiary] = unclaimedReward(_beneficiary);
+    scaledUnclaimedRewardCheckpoint[_beneficiary] = _scaledUnclaimedReward(_beneficiary);
     beneficiaryRewardPerTokenCheckpoint[_beneficiary] = rewardPerTokenAccumulatedCheckpoint;
   }
 
