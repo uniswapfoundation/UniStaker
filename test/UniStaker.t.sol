@@ -2679,8 +2679,8 @@ contract UniStakerRewardsTest is UniStakerTest {
     console2.log(uniStaker.earningPower(_depositor));
     console2.log("beneficiaryRewardPerTokenCheckpoint[_depositor]");
     console2.log(uniStaker.beneficiaryRewardPerTokenCheckpoint(_depositor));
-    console2.log("unclaimedRewardCheckpoint[_depositor]");
-    console2.log(uniStaker.unclaimedRewardCheckpoint(_depositor));
+    console2.log("scaledUnclaimedRewardCheckpoint[_depositor]");
+    console2.log(uniStaker.scaledUnclaimedRewardCheckpoint(_depositor));
     console2.log("unclaimedReward(_depositor)");
     console2.log(uniStaker.unclaimedReward(_depositor));
     console2.log("-----------------------------------------------");
@@ -4463,6 +4463,49 @@ contract UnclaimedReward is UniStakerRewardsTest {
 
     // Rewards earned by depositors should always at most equal to the actual reward amount
     assertLteWithinOnePercent(_earned1 + _earned2, _rewardAmount);
+  }
+
+  function test_CalculatesEarningsInAWayThatMitigatesRewardGriefing() public {
+    address _depositor1 = makeAddr("Depositor 1");
+    address _depositor2 = makeAddr("Depositor 2");
+    address _depositor3 = makeAddr("Depositor 3");
+    address _delegatee = makeAddr("Delegatee");
+    address _attacker = makeAddr("Attacker");
+
+    uint256 _smallDepositAmount = 0.1e18;
+    uint256 _largeDepositAmount = 25_000_000e18;
+    _mintGovToken(_depositor1, _smallDepositAmount);
+    _mintGovToken(_depositor2, _smallDepositAmount);
+    _mintGovToken(_depositor3, _largeDepositAmount);
+    uint256 _rewardAmount = 1e14;
+    rewardToken.mint(rewardNotifier, _rewardAmount);
+
+    // The contract is notified of a reward
+    vm.startPrank(rewardNotifier);
+    rewardToken.transfer(address(uniStaker), _rewardAmount);
+    uniStaker.notifyRewardAmount(_rewardAmount);
+    vm.stopPrank();
+
+    // User deposit staking tokens
+    _stake(_depositor1, _smallDepositAmount, _delegatee);
+    _stake(_depositor2, _smallDepositAmount, _delegatee);
+    _stake(_depositor3, _largeDepositAmount, _delegatee);
+
+    // Every block _attacker deposits 0 stake and assigns _depositor1 as beneficiary, thus leading
+    // to frequent updates of the reward checkpoint for _depositor1, during which rounding errors
+    // could accrue.
+    UniStaker.DepositIdentifier _depositId = _stake(_attacker, 0, _delegatee, _depositor1);
+    for (uint256 i = 0; i < 1000; ++i) {
+      _jumpAhead(12);
+      vm.prank(_attacker);
+      uniStaker.stakeMore(_depositId, 0);
+    }
+
+    // Despite the attempted griefing attack, the unclaimed rewards for the two depositors should
+    // be ~the same.
+    assertLteWithinOnePercent(
+      uniStaker.unclaimedReward(_depositor1), uniStaker.unclaimedReward(_depositor2)
+    );
   }
 }
 
