@@ -2695,7 +2695,7 @@ contract InvalidateNonce is UniStakerTest {
     public
   {
     vm.assume(_caller != address(0));
-    vm.assume(_initialNonce != type(uint256).max);
+    _initialNonce = bound(_initialNonce, 0, type(uint256).max - 2 );
 
     // Set nonces in storage assert incremented by one
     stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_caller).checked_write(
