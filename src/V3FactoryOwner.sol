@@ -172,12 +172,14 @@ contract V3FactoryOwner {
   /// @param _pool The Uniswap v3 pool contract from which protocol fees are being collected.
   /// @param _recipient The address to which collected protocol fees will be transferred.
   /// @param _amount0Requested The amount0Requested param to forward to the pool's collectProtocol
-  /// method.
+  /// method. Its maximum value will be `protocolFees.token0 - 1`.
   /// @param _amount1Requested The amount1Requested param to forward to the pool's collectProtocol
-  /// method.
+  /// method. Its maximum value will be `protocolFees.token1 - 1`.
   /// @return _amount0 The amount0 fees collected, returned by the pool's collectProtocol method.
   /// @return _amount1 The amount1 fees collected, returned by the pool's collectProtocol method.
-  /// @dev See docs on IUniswapV3PoolOwnerActions for more information on forwarded params.
+  /// @dev The `UniswapV3Pool contract allows claiming a maximum of the total accrued fees minus 1.
+  /// We highly recommend checking the source code of the `UniswapV3Pool` contract in order to
+  /// better understand the potential constraints of the forwarded params.
   function claimFees(
     IUniswapV3PoolOwnerActions _pool,
     address _recipient,
