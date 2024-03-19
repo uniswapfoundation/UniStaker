@@ -614,7 +614,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   }
 
   function invalidateNonce() external {
-  	_useNonce(msg.sender);
+    _useNonce(msg.sender);
   }
 
   /// @notice Internal method which finds the existing surrogate contract—or deploys a new one if
