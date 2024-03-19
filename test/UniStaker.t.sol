@@ -2670,7 +2670,11 @@ contract InvalidateNonce is UniStakerTest {
     assertEq(currentNonce, _initialNonce + 1, "Current nonce is incorrect");
   }
 
-  function testFuzz_NonOwnerCannotUpdateAnotherAddressesNonce(address _caller, address _nonceOwner, uint256 _initialNonce) public {
+  function testFuzz_NonOwnerCannotUpdateAnotherAddressesNonce(
+    address _caller,
+    address _nonceOwner,
+    uint256 _initialNonce
+  ) public {
     vm.assume(_caller != address(0));
     vm.assume(_initialNonce != type(uint256).max);
 
@@ -2684,10 +2688,12 @@ contract InvalidateNonce is UniStakerTest {
 
     uint256 currentNonce = uniStaker.nonces(_nonceOwner);
 
-	assertEq(currentNonce, _initialNonce);
+    assertEq(currentNonce, _initialNonce);
   }
 
-  function testFuzz_NonceIncrementsWhenCalledMultipleTimes(address _caller, uint256, _initialNonce) public {
+  function testFuzz_NonceIncrementsWhenCalledMultipleTimes(address _caller, uint256 _initialNonce)
+    public
+  {
     vm.assume(_caller != address(0));
     vm.assume(_initialNonce != type(uint256).max);
 
@@ -2705,7 +2711,6 @@ contract InvalidateNonce is UniStakerTest {
     uint256 currentNonce = uniStaker.nonces(_caller);
 
     assertEq(currentNonce, _initialNonce + 2, "Current nonce is incorrect");
-
   }
 }
 
