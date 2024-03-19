@@ -613,6 +613,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
       );
   }
 
+  /// @notice Allows an address to increment their nonce and therefore invalidate any pending signed actions.
   function invalidateNonce() external {
     _useNonce(msg.sender);
   }
