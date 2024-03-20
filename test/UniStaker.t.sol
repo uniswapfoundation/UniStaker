@@ -2675,7 +2675,7 @@ contract InvalidateNonce is UniStakerTest {
     address _nonceOwner,
     uint256 _initialNonce
   ) public {
-    vm.assume(_caller != address(0));
+    vm.assume(_caller != address(0) && _caller != _nonceOwner);
     vm.assume(_initialNonce != type(uint256).max);
 
     // Set nonces in storage assert incremented by one
