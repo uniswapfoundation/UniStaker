@@ -241,7 +241,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// Note that the contract tracks the unclaimed rewards internally with the scale factor
   /// included, in order to avoid the accrual of precision losses as users takes actions that
   /// cause rewards to be checkpointed. This external helper method is useful for integrations, and
-  /// returns the value after it  has been scaled down to the reward token's raw decimal amount.
+  /// returns the value after it has been scaled down to the reward token's raw decimal amount.
   /// @return Live value of the unclaimed rewards earned by a given beneficiary account.
   function unclaimedReward(address _beneficiary) external view returns (uint256) {
     return _scaledUnclaimedReward(_beneficiary) / SCALE_FACTOR;
