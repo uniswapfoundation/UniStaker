@@ -265,7 +265,7 @@ contract Stake is IntegrationTest, PercentAssertions {
   ) public {
     vm.assume(_depositor != address(0) && _delegatee != address(0) && _amount != 0);
     // Make sure depositor is not UniStaker
-    vm.assume(_depositor != 0xE2307e3710d108ceC7a4722a020a050681c835b3);
+    vm.assume(_depositor != address(uniStaker));
     _passQueueAndExecuteProposals();
     _swapAndClaimFees(_swapAmount);
     _amount = _dealStakingToken(_depositor, _amount);
