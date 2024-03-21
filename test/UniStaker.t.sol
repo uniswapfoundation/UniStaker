@@ -28,6 +28,9 @@ contract UniStakerTest is Test, PercentAssertions {
   event RewardNotifierSet(address indexed account, bool isEnabled);
   event AdminSet(address indexed oldAdmin, address indexed newAdmin);
 
+  mapping(DelegationSurrogate surrogate => bool isKnown) isKnownSurrogate;
+  mapping(address depositor => bool isKnown) isKnownDepositor;
+
   function setUp() public {
     // Set the block timestamp to an arbitrary value to avoid introducing assumptions into tests
     // based on a starting timestamp of 0, which is the default.
@@ -75,6 +78,20 @@ contract UniStakerTest is Test, PercentAssertions {
     _boundedStakeAmount = bound(_stakeAmount, 0.1e18, 25_000_000e18);
   }
 
+  // Remember each depositor and surrogate (as they're deployed) and ensure that there is
+  // no overlap between them. This is to prevent the fuzzer from selecting a surrogate as a
+  // depositor or vice versa.
+  function _assumeSafeDepositorAndSurrogate(address _depositor, address _delegatee) internal {
+    DelegationSurrogate _surrogate = uniStaker.surrogates(_delegatee);
+    isKnownDepositor[_depositor] = true;
+    isKnownSurrogate[_surrogate] = true;
+
+    vm.assume(
+      (!isKnownSurrogate[DelegationSurrogate(_depositor)])
+        && (!isKnownDepositor[address(_surrogate)])
+    );
+  }
+
   function _stake(address _depositor, uint256 _amount, address _delegatee)
     internal
     returns (UniStaker.DepositIdentifier _depositId)
@@ -85,6 +102,9 @@ contract UniStakerTest is Test, PercentAssertions {
     govToken.approve(address(uniStaker), _amount);
     _depositId = uniStaker.stake(_amount, _delegatee);
     vm.stopPrank();
+
+    // Called after the stake so the surrogate will exist
+    _assumeSafeDepositorAndSurrogate(_depositor, _delegatee);
   }
 
   function _stake(address _depositor, uint256 _amount, address _delegatee, address _beneficiary)
@@ -97,6 +117,9 @@ contract UniStakerTest is Test, PercentAssertions {
     govToken.approve(address(uniStaker), _amount);
     _depositId = uniStaker.stake(_amount, _delegatee, _beneficiary);
     vm.stopPrank();
+
+    // Called after the stake so the surrogate will exist
+    _assumeSafeDepositorAndSurrogate(_depositor, _delegatee);
   }
 
   function _fetchDeposit(UniStaker.DepositIdentifier _depositId)
