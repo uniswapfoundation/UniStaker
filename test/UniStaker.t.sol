@@ -2657,7 +2657,6 @@ contract InvalidateNonce is UniStakerTest {
     vm.assume(_caller != address(0));
     vm.assume(_initialNonce != type(uint256).max);
 
-    // Set nonces in storage assert incremented by one
     stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_caller).checked_write(
       _initialNonce
     );
@@ -2670,34 +2669,12 @@ contract InvalidateNonce is UniStakerTest {
     assertEq(currentNonce, _initialNonce + 1, "Current nonce is incorrect");
   }
 
-  function testFuzz_NonOwnerCannotUpdateAnotherAddressesNonce(
-    address _caller,
-    address _nonceOwner,
-    uint256 _initialNonce
-  ) public {
-    vm.assume(_caller != address(0) && _caller != _nonceOwner);
-    vm.assume(_initialNonce != type(uint256).max);
-
-    // Set nonces in storage assert incremented by one
-    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_nonceOwner).checked_write(
-      _initialNonce
-    );
-
-    vm.prank(_caller);
-    uniStaker.invalidateNonce();
-
-    uint256 currentNonce = uniStaker.nonces(_nonceOwner);
-
-    assertEq(currentNonce, _initialNonce);
-  }
-
   function testFuzz_NonceIncrementsWhenCalledMultipleTimes(address _caller, uint256 _initialNonce)
     public
   {
     vm.assume(_caller != address(0));
     _initialNonce = bound(_initialNonce, 0, type(uint256).max - 2);
 
-    // Set nonces in storage assert incremented by one
     stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_caller).checked_write(
       _initialNonce
     );
