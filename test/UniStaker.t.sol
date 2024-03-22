@@ -2651,7 +2651,7 @@ contract SetAdmin is UniStakerTest {
 contract InvalidateNonce is UniStakerTest {
   using stdStorage for StdStorage;
 
-  function testFuzz_SucessfullyInvalidatesNonceForMsgSender(address _caller, uint256 _initialNonce)
+  function testFuzz_SucessfullyIncrementsTheNonceOfTheSender(address _caller, uint256 _initialNonce)
     public
   {
     vm.assume(_caller != address(0));
@@ -2669,7 +2669,7 @@ contract InvalidateNonce is UniStakerTest {
     assertEq(currentNonce, _initialNonce + 1, "Current nonce is incorrect");
   }
 
-  function testFuzz_NonceIncrementsWhenCalledMultipleTimes(address _caller, uint256 _initialNonce)
+  function testFuzz_IncreasesTheNonceByTwoWhenCalledTwice(address _caller, uint256 _initialNonce)
     public
   {
     vm.assume(_caller != address(0));
