@@ -2648,6 +2648,49 @@ contract SetAdmin is UniStakerTest {
   }
 }
 
+contract InvalidateNonce is UniStakerTest {
+  using stdStorage for StdStorage;
+
+  function testFuzz_SucessfullyIncrementsTheNonceOfTheSender(address _caller, uint256 _initialNonce)
+    public
+  {
+    vm.assume(_caller != address(0));
+    vm.assume(_initialNonce != type(uint256).max);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_caller).checked_write(
+      _initialNonce
+    );
+
+    vm.prank(_caller);
+    uniStaker.invalidateNonce();
+
+    uint256 currentNonce = uniStaker.nonces(_caller);
+
+    assertEq(currentNonce, _initialNonce + 1, "Current nonce is incorrect");
+  }
+
+  function testFuzz_IncreasesTheNonceByTwoWhenCalledTwice(address _caller, uint256 _initialNonce)
+    public
+  {
+    vm.assume(_caller != address(0));
+    _initialNonce = bound(_initialNonce, 0, type(uint256).max - 2);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_caller).checked_write(
+      _initialNonce
+    );
+
+    vm.prank(_caller);
+    uniStaker.invalidateNonce();
+
+    vm.prank(_caller);
+    uniStaker.invalidateNonce();
+
+    uint256 currentNonce = uniStaker.nonces(_caller);
+
+    assertEq(currentNonce, _initialNonce + 2, "Current nonce is incorrect");
+  }
+}
+
 contract UniStakerRewardsTest is UniStakerTest {
   // Helper methods for dumping contract state related to rewards calculation for debugging
   function __dumpDebugGlobalRewards() public view {

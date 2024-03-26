@@ -613,6 +613,12 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
       );
   }
 
+  /// @notice Allows an address to increment their nonce and therefore invalidate any pending signed
+  /// actions.
+  function invalidateNonce() external {
+    _useNonce(msg.sender);
+  }
+
   /// @notice Internal method which finds the existing surrogate contract—or deploys a new one if
   /// none exists—for a given delegatee.
   /// @param _delegatee Account for which a surrogate is sought.
