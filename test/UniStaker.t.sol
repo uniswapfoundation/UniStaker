@@ -62,7 +62,7 @@ contract UniStakerTest is Test, PercentAssertions {
   }
 
   function _boundMintAmount(uint96 _amount) internal pure returns (uint96) {
-    return uint96(bound(_amount, 0, 100_000_000_000e18));
+    return uint96(bound(_amount, 0, 100_000_000e18));
   }
 
   function _mintGovToken(address _to, uint96 _amount) internal {
@@ -5168,7 +5168,7 @@ contract Multicall is UniStakerRewardsTest {
     returns (bytes memory)
   {
     return
-      abi.encodeWithSelector(bytes4(keccak256("stake(uint256,address)")), _stakeAmount, _delegatee);
+      abi.encodeWithSelector(bytes4(keccak256("stake(uint96,address)")), _stakeAmount, _delegatee);
   }
 
   function _encodeStake(address _delegatee, uint96 _stakeAmount, address _beneficiary)
@@ -5177,7 +5177,7 @@ contract Multicall is UniStakerRewardsTest {
     returns (bytes memory)
   {
     return abi.encodeWithSelector(
-      bytes4(keccak256("stake(uint256,address,address)")), _stakeAmount, _delegatee, _beneficiary
+      bytes4(keccak256("stake(uint96,address,address)")), _stakeAmount, _delegatee, _beneficiary
     );
   }
 
@@ -5187,7 +5187,7 @@ contract Multicall is UniStakerRewardsTest {
     returns (bytes memory)
   {
     return abi.encodeWithSelector(
-      bytes4(keccak256("stakeMore(uint256,uint256)")), _depositId, _stakeAmount
+      bytes4(keccak256("stakeMore(uint256,uint96)")), _depositId, _stakeAmount
     );
   }
 
@@ -5197,7 +5197,7 @@ contract Multicall is UniStakerRewardsTest {
     returns (bytes memory)
   {
     return
-      abi.encodeWithSelector(bytes4(keccak256("withdraw(uint256,uint256)")), _depositId, _amount);
+      abi.encodeWithSelector(bytes4(keccak256("withdraw(uint256,uint96)")), _depositId, _amount);
   }
 
   function _encodeAlterBeneficiary(UniStaker.DepositIdentifier _depositId, address _beneficiary)
