@@ -802,7 +802,8 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
 
     uint256 _reward = scaledUnclaimedRewardCheckpoint[_beneficiary] / SCALE_FACTOR;
     if (_reward == 0) return;
-    scaledUnclaimedRewardCheckpoint[_beneficiary] = 0;
+    scaledUnclaimedRewardCheckpoint[_beneficiary] =
+      scaledUnclaimedRewardCheckpoint[_beneficiary] - (_reward * SCALE_FACTOR);
     emit RewardClaimed(_beneficiary, _reward);
 
     SafeERC20.safeTransfer(REWARD_TOKEN, _beneficiary, _reward);
