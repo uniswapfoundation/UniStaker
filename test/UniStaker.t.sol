@@ -4990,6 +4990,33 @@ contract ClaimReward is UniStakerRewardsTest {
     assertEq(rewardToken.balanceOf(_depositor), _earned);
   }
 
+  function testFuzz_ReturnsClaimedRewardAmount(
+    address _depositor,
+    address _delegatee,
+    uint96 _stakeAmount,
+    uint256 _rewardAmount,
+    uint256 _durationPercent
+  ) public {
+    vm.assume(_depositor != address(uniStaker));
+
+    (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    _boundMintAndStake(_depositor, _stakeAmount, _delegatee);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+
+    uint256 _earned = uniStaker.unclaimedReward(_depositor);
+
+    vm.prank(_depositor);
+    uint256 _claimedAmount = uniStaker.claimReward();
+
+    assertEq(_earned, _claimedAmount);
+  }
+
   function testFuzz_ResetsTheRewardsEarnedByTheUser(
     address _depositor,
     address _delegatee,
@@ -5091,6 +5118,56 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
     uniStaker.claimRewardOnBehalf(_beneficiary, _deadline, _signature);
 
     assertEq(rewardToken.balanceOf(_beneficiary), _earned);
+  }
+
+  function testFuzz_ReturnsClaimedRewardAmount(
+    uint256 _beneficiaryPrivateKey,
+    address _sender,
+    uint96 _depositAmount,
+    uint256 _durationPercent,
+    uint256 _rewardAmount,
+    address _delegatee,
+    address _depositor,
+    uint256 _currentNonce,
+    uint256 _deadline
+  ) public {
+    vm.assume(_delegatee != address(0) && _depositor != address(0) && _sender != address(0));
+    _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
+    address _beneficiary = vm.addr(_beneficiaryPrivateKey);
+
+    UniStaker.DepositIdentifier _depositId;
+    (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
+    _durationPercent = bound(_durationPercent, 0, 100);
+
+    // A user deposits staking tokens
+    (_depositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
+    // The contract is notified of a reward
+    _mintTransferAndNotifyReward(_rewardAmount);
+    // A portion of the duration passes
+    _jumpAheadByPercentOfRewardDuration(_durationPercent);
+    _deadline = bound(_deadline, block.timestamp, type(uint256).max);
+
+    uint256 _earned = uniStaker.unclaimedReward(_beneficiary);
+
+    stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_beneficiary).checked_write(
+      _currentNonce
+    );
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        uniStaker.CLAIM_REWARD_TYPEHASH(), _beneficiary, uniStaker.nonces(_beneficiary), _deadline
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
+    bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
+
+    vm.prank(_sender);
+    uint256 _claimedAmount = uniStaker.claimRewardOnBehalf(_beneficiary, _deadline, _signature);
+
+    assertEq(_earned, _claimedAmount);
   }
 
   function testFuzz_RevertIf_WrongNonceIsUsed(

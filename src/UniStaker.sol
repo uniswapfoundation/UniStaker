@@ -564,8 +564,9 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
 
   /// @notice Claim reward tokens the message sender has earned as a stake beneficiary. Tokens are
   /// sent to the message sender.
-  function claimReward() external {
-    _claimReward(msg.sender);
+  /// @return Amount of reward tokens claimed.
+  function claimReward() external returns (uint256) {
+    return _claimReward(msg.sender);
   }
 
   /// @notice Claim earned reward tokens for a beneficiary, using a signature to validate the
@@ -573,8 +574,10 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _beneficiary Address of the beneficiary who will receive the reward.
   /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the beneficiary authorizing this reward claim.
+  /// @return Amount of reward tokens claimed.
   function claimRewardOnBehalf(address _beneficiary, uint256 _deadline, bytes memory _signature)
     external
+    returns (uint256)
   {
     _revertIfPastDeadline(_deadline);
     _revertIfSignatureIsNotValidNow(
@@ -586,7 +589,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
       ),
       _signature
     );
-    _claimReward(_beneficiary);
+    return _claimReward(_beneficiary);
   }
 
   /// @notice Called by an authorized rewards notifier to alert the staking contract that a new
@@ -792,20 +795,23 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   }
 
   /// @notice Internal convenience method which claims earned rewards.
+  /// @return Amount of reward tokens claimed.
   /// @dev This method must only be called after proper authorization has been completed.
   /// @dev See public claimReward methods for additional documentation.
-  function _claimReward(address _beneficiary) internal {
+  function _claimReward(address _beneficiary) internal returns (uint256) {
     _checkpointGlobalReward();
     _checkpointReward(_beneficiary);
 
     uint256 _reward = scaledUnclaimedRewardCheckpoint[_beneficiary] / SCALE_FACTOR;
-    if (_reward == 0) return;
+    if (_reward == 0) return 0;
+
     // retain sub-wei dust that would be left due to the precision loss
     scaledUnclaimedRewardCheckpoint[_beneficiary] =
       scaledUnclaimedRewardCheckpoint[_beneficiary] - (_reward * SCALE_FACTOR);
     emit RewardClaimed(_beneficiary, _reward);
 
     SafeERC20.safeTransfer(REWARD_TOKEN, _beneficiary, _reward);
+    return _reward;
   }
 
   /// @notice Checkpoints the global reward per token accumulator.
