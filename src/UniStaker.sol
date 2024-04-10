@@ -802,6 +802,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
 
     uint256 _reward = scaledUnclaimedRewardCheckpoint[_beneficiary] / SCALE_FACTOR;
     if (_reward == 0) return;
+    // retain sub-wei dust that would be left due to the precision loss
     scaledUnclaimedRewardCheckpoint[_beneficiary] =
       scaledUnclaimedRewardCheckpoint[_beneficiary] - (_reward * SCALE_FACTOR);
     emit RewardClaimed(_beneficiary, _reward);
