@@ -53,9 +53,9 @@ contract IntegrationTest is ProposalTest {
     v3FactoryOwner.claimFees(IUniswapV3PoolOwnerActions(DAI_WETH_3000_POOL), address(this), 1, 0);
   }
 
-  function _dealStakingToken(address _depositor, uint256 _amount) internal returns (uint256) {
+  function _dealStakingToken(address _depositor, uint96 _amount) internal returns (uint96) {
     stdstore.target(STAKE_TOKEN_ADDRESS).sig("mintingAllowedAfter()").checked_write(uint256(0));
-    _amount = bound(_amount, 1, 2e25); // max mint cap
+    _amount = uint96(bound(_amount, 1, 2e25)); // max mint cap
     IERC20Mint stakeToken = IERC20Mint(STAKE_TOKEN_ADDRESS);
 
     vm.prank(STAKING_TOKEN_MINTER);

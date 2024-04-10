@@ -241,7 +241,7 @@ contract Propose is IntegrationTest {
 contract Stake is IntegrationTest, PercentAssertions {
   function testForkFuzz_CorrectlyStakeAndEarnRewardsAfterFullDuration(
     address _depositor,
-    uint256 _amount,
+    uint96 _amount,
     address _delegatee,
     uint128 _swapAmount
   ) public {
@@ -259,7 +259,7 @@ contract Stake is IntegrationTest, PercentAssertions {
 
   function testForkFuzz_CorrectlyStakeAndClaimRewardsAfterFullDuration(
     address _depositor,
-    uint256 _amount,
+    uint96 _amount,
     address _delegatee,
     uint128 _swapAmount
   ) public {
@@ -287,7 +287,7 @@ contract Stake is IntegrationTest, PercentAssertions {
 
   function testForkFuzz_CorrectlyStakeAndEarnRewardsAfterPartialDuration(
     address _depositor,
-    uint256 _amount,
+    uint96 _amount,
     address _delegatee,
     uint128 _swapAmount,
     uint256 _percentDuration
@@ -310,8 +310,8 @@ contract Stake is IntegrationTest, PercentAssertions {
 
   function testForkFuzz_CorrectlyStakeMoreAndEarnRewardsAfterFullDuration(
     address _depositor,
-    uint256 _initialAmount,
-    uint256 _additionalAmount,
+    uint96 _initialAmount,
+    uint96 _additionalAmount,
     address _delegatee,
     uint128 _swapAmount,
     uint256 _percentDuration
