@@ -281,14 +281,13 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     _depositId = _stake(msg.sender, _amount, _delegatee, _beneficiary);
   }
 
-  /// @notice Method to stake tokens to a new deposit. The caller must approve the staking
-  /// contract to spend at least the would-be staked amount of the token via a signature which is
-  /// is also provided, and is passed to the token contract's permit method before the staking
-  /// operation occurs.
+  /// @notice Method to stake tokens to a new deposit. Before the staking operation occurs, a
+  /// signature is passed to the token contract's permit method to spend the would-be staked amount
+  /// of the token.
   /// @param _amount Quantity of the staking token to stake.
   /// @param _delegatee Address to assign the governance voting weight of the staked tokens.
   /// @param _beneficiary Address that will accrue rewards for this stake.
-  /// @param _deadline The timestamp at which the permit signature should expire.
+  /// @param _deadline The timestamp after which the permit signature should expire.
   /// @param _v ECDSA signature component: Parity of the `y` coordinate of point `R`
   /// @param _r ECDSA signature component: x-coordinate of `R`
   /// @param _s ECDSA signature component: `s` value of the signature
@@ -315,7 +314,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _delegatee Address to assign the governance voting weight of the staked tokens.
   /// @param _beneficiary Address that will accrue rewards for this stake.
   /// @param _depositor Address of the user on whose behalf this stake is being made.
-  /// @param _deadline The timestamp at which the signature should expire.
+  /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the user authorizing this stake.
   /// @return _depositId Unique identifier for this deposit.
   /// @dev Neither the delegatee nor the beneficiary may be the zero address.
@@ -362,12 +361,11 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
 
   /// @notice Add more staking tokens to an existing deposit. A staker should call this method when
   /// they have an existing deposit, and wish to stake more while retaining the same delegatee and
-  /// beneficiary. The caller must approve the staking contract to spend at least the would-be
-  /// staked amount of the token via a signature which is is also provided, and is passed to the
-  /// token contract's permit method before the staking operation occurs.
+  /// beneficiary. Before the staking operation occurs, a signature is passed to the token
+  /// contract's permit method to spend the would-be staked amount of the token.
   /// @param _depositId Unique identifier of the deposit to which stake will be added.
   /// @param _amount Quantity of stake to be added.
-  /// @param _deadline The timestamp at which the permit signature should expire.
+  /// @param _deadline The timestamp after which the permit signature should expire.
   /// @param _v ECDSA signature component: Parity of the `y` coordinate of point `R`
   /// @param _r ECDSA signature component: x-coordinate of `R`
   /// @param _s ECDSA signature component: `s` value of the signature
@@ -393,7 +391,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _depositId Unique identifier of the deposit to which stake will be added.
   /// @param _amount Quantity of stake to be added.
   /// @param _depositor Address of the user on whose behalf this stake is being made.
-  /// @param _deadline The timestamp at which the signature should expire.
+  /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the user authorizing this stake.
   function stakeMoreOnBehalf(
     DepositIdentifier _depositId,
@@ -437,7 +435,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _depositId Unique identifier of the deposit which will have its delegatee altered.
   /// @param _newDelegatee Address of the new governance delegate.
   /// @param _depositor Address of the user on whose behalf this stake is being made.
-  /// @param _deadline The timestamp at which the signature should expire.
+  /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the user authorizing this stake.
   /// @dev The new delegatee may not be the zero address.
   function alterDelegateeOnBehalf(
@@ -487,7 +485,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _depositId Unique identifier of the deposit which will have its beneficiary altered.
   /// @param _newBeneficiary Address of the new rewards beneficiary.
   /// @param _depositor Address of the user on whose behalf this stake is being made.
-  /// @param _deadline The timestamp at which the signature should expire.
+  /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the user authorizing this stake.
   /// @dev The new beneficiary may not be the zero address.
   function alterBeneficiaryOnBehalf(
@@ -536,7 +534,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _depositId Unique identifier of the deposit from which stake will be withdrawn.
   /// @param _amount Quantity of staked token to withdraw.
   /// @param _depositor Address of the user on whose behalf this stake is being made.
-  /// @param _deadline The timestamp at which the signature should expire.
+  /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the user authorizing this stake.
   /// @dev Stake is withdrawn to the deposit owner's account.
   function withdrawOnBehalf(
@@ -573,7 +571,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @notice Claim earned reward tokens for a beneficiary, using a signature to validate the
   /// beneficiary's intent. Tokens are sent to the beneficiary.
   /// @param _beneficiary Address of the beneficiary who will receive the reward.
-  /// @param _deadline The timestamp at which the signature should expire.
+  /// @param _deadline The timestamp after which the signature should expire.
   /// @param _signature Signature of the beneficiary authorizing this reward claim.
   function claimRewardOnBehalf(address _beneficiary, uint256 _deadline, bytes memory _signature)
     external
@@ -609,8 +607,8 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   function notifyRewardAmount(uint256 _amount) external {
     if (!isRewardNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
 
-    // We checkpoint the accumulator without updating the timestamp at which it was updated, because
-    // that second operation will be done after updating the reward rate.
+    // We checkpoint the accumulator without updating the timestamp at which it was updated,
+    // because that second operation will be done after updating the reward rate.
     rewardPerTokenAccumulatedCheckpoint = rewardPerTokenAccumulated();
 
     if (block.timestamp >= rewardEndTime) {
