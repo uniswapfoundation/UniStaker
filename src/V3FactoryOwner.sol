@@ -173,10 +173,10 @@ contract V3FactoryOwner {
   /// is expected to be subject to the governance process, including a timelocked execution, and so
   /// it's unlikely that a caller would be surprised by a change in this value. Still, callers
   /// should be aware of the edge case where:
-  /// - 0. The caller grants a higher-than-necessary payout token approval to this factory.
-  /// - 1. caller's claimFee transaction is in the mempool.
-  /// - 2. the payoutAmount is changed.
-  /// - 3. the claimFee transaction is now included in a block.
+  /// 1. The caller grants a higher-than-necessary payout token approval to this factory.
+  /// 2. caller's claimFee transaction is in the mempool.
+  /// 3. the payoutAmount is changed.
+  /// 4. the claimFee transaction is now included in a block.
   /// @param _pool The Uniswap v3 pool contract from which protocol fees are being collected.
   /// @param _recipient The address to which collected protocol fees will be transferred.
   /// @param _amount0Requested The amount0Requested param to forward to the pool's collectProtocol
