@@ -608,8 +608,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     if (!isRewardNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
 
     // We checkpoint the accumulator without updating the timestamp at which it was updated,
-    // because
-    // that second operation will be done after updating the reward rate.
+    // because that second operation will be done after updating the reward rate.
     rewardPerTokenAccumulatedCheckpoint = rewardPerTokenAccumulated();
 
     if (block.timestamp >= rewardEndTime) {
