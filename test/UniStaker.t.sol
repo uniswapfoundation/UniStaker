@@ -5,6 +5,7 @@ import {Vm, Test, stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
 import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
 import {ERC20VotesMock, ERC20Permit} from "test/mocks/MockERC20Votes.sol";
+import {IERC20Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
 import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
 import {PercentAssertions} from "test/helpers/PercentAssertions.sol";
 
@@ -781,10 +782,48 @@ contract PermitAndStake is UniStakerTest {
     assertEq(_deposit.beneficiary, _beneficiary);
   }
 
-  function testFuzz_RevertIf_ThePermitSignatureIsInvalid(
+  function testFuzz_SuccessfullyStakeWhenApprovalExistsAndPermitSignatureIsInvalid(
+    uint256 _depositorPrivateKey,
+    uint96 _depositAmount,
+    uint256 _approvalAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+    _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
+    address _depositor = vm.addr(_depositorPrivateKey);
+    _depositAmount = _boundMintAmount(_depositAmount);
+    _approvalAmount = bound(_approvalAmount, _depositAmount, type(uint256).max);
+    _mintGovToken(_depositor, _depositAmount);
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _approvalAmount);
+    vm.stopPrank();
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        PERMIT_TYPEHASH,
+        _depositor,
+        address(uniStaker),
+        _depositAmount,
+        1, // intentionally wrong nonce
+        block.timestamp
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", govToken.DOMAIN_SEPARATOR(), _message));
+    (uint8 _v, bytes32 _r, bytes32 _s) = vm.sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_depositor);
+    uniStaker.permitAndStake(_depositAmount, _delegatee, _beneficiary, block.timestamp, _v, _r, _s);
+    assertEq(uniStaker.depositorTotalStaked(_depositor), _depositAmount);
+  }
+
+  function testFuzz_RevertIf_ThePermitSignatureIsInvalidAndTheApprovalIsInsufficient(
     address _notDepositor,
     uint256 _depositorPrivateKey,
     uint96 _depositAmount,
+    uint256 _approvalAmount,
     address _delegatee,
     address _beneficiary,
     uint256 _deadline
@@ -794,8 +833,12 @@ contract PermitAndStake is UniStakerTest {
     _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
     address _depositor = vm.addr(_depositorPrivateKey);
     vm.assume(_notDepositor != _depositor);
-    _depositAmount = _boundMintAmount(_depositAmount);
+    _depositAmount = _boundMintAmount(_depositAmount) + 1;
+    _approvalAmount = bound(_approvalAmount, 0, _depositAmount - 1);
     _mintGovToken(_depositor, _depositAmount);
+    vm.startPrank(_depositor);
+    govToken.approve(address(uniStaker), _approvalAmount);
+    vm.stopPrank();
 
     bytes32 _message = keccak256(
       abi.encode(
@@ -812,9 +855,14 @@ contract PermitAndStake is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", govToken.DOMAIN_SEPARATOR(), _message));
     (uint8 _v, bytes32 _r, bytes32 _s) = vm.sign(_depositorPrivateKey, _messageHash);
 
-    vm.prank(_notDepositor);
+    vm.prank(_depositor);
     vm.expectRevert(
-      abi.encodeWithSelector(ERC20Permit.ERC2612InvalidSigner.selector, _depositor, _notDepositor)
+      abi.encodeWithSelector(
+        IERC20Errors.ERC20InsufficientAllowance.selector,
+        address(uniStaker),
+        _approvalAmount,
+        _depositAmount
+      )
     );
     uniStaker.permitAndStake(_depositAmount, _delegatee, _beneficiary, _deadline, _v, _r, _s);
   }
@@ -1285,6 +1333,45 @@ contract PermitAndStakeMore is UniStakerTest {
     assertEq(_deposit.beneficiary, _beneficiary);
   }
 
+  function testFuzz_SuccessfullyStakeMoreWhenApprovalExistsAndPermitSignatureIsInvalid(
+    uint96 _initialDepositAmount,
+    uint96 _stakeMoreAmount,
+    uint256 _approvalAmount,
+    address _delegatee,
+    address _beneficiary
+  ) public {
+    vm.assume(_delegatee != address(0) && _beneficiary != address(0));
+    (address _depositor, uint256 _depositorPrivateKey) = makeAddrAndKey("depositor");
+    UniStaker.DepositIdentifier _depositId;
+    (_initialDepositAmount, _depositId) =
+      _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
+    _stakeMoreAmount = uint96(bound(_stakeMoreAmount, 0, type(uint96).max - _initialDepositAmount));
+    _approvalAmount = bound(_approvalAmount, _stakeMoreAmount, type(uint256).max);
+    _mintGovToken(_depositor, _stakeMoreAmount);
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _approvalAmount);
+
+    bytes32 _message = keccak256(
+      abi.encode(
+        PERMIT_TYPEHASH,
+        _depositor,
+        address(uniStaker),
+        _stakeMoreAmount,
+        1, // intentionally incorrect nonce, which should be 0
+        block.timestamp + 10_000
+      )
+    );
+
+    bytes32 _messageHash =
+      keccak256(abi.encodePacked("\x19\x01", govToken.DOMAIN_SEPARATOR(), _message));
+
+    (uint8 _v, bytes32 _r, bytes32 _s) = vm.sign(_depositorPrivateKey, _messageHash);
+
+    vm.prank(_depositor);
+    uniStaker.permitAndStakeMore(_depositId, _stakeMoreAmount, block.timestamp, _v, _r, _s);
+    assertEq(uniStaker.depositorTotalStaked(_depositor), _initialDepositAmount + _stakeMoreAmount);
+  }
+
   function testFuzz_RevertIf_CallerIsNotTheDepositOwner(
     address _depositor,
     uint256 _notDepositorPrivateKey,
@@ -1334,7 +1421,7 @@ contract PermitAndStakeMore is UniStakerTest {
     }
   }
 
-  function testFuzz_RevertIf_ThePermitSignatureIsInvalid(
+  function testFuzz_RevertIf_ThePermitSignatureIsInvalidAndTheApprovalIsInsufficient(
     uint96 _initialDepositAmount,
     address _delegatee,
     address _beneficiary
@@ -1347,14 +1434,14 @@ contract PermitAndStakeMore is UniStakerTest {
     uint96 _stakeMoreAmount = 1578e18;
     uint256 _deadline = 1e18 days;
     uint256 _wrongNonce = 1;
-    // If any of the values defined above are changed, the expected recovered address must also
-    // be recalculated and updated.
-    address _expectedRecoveredSigner = address(0xF03C6C880C40b5698e466C136C460ea71A0C5E33);
+    uint256 _approvalAmount = _stakeMoreAmount - 1;
 
     UniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
     _mintGovToken(_depositor, _stakeMoreAmount);
+    vm.prank(_depositor);
+    govToken.approve(address(uniStaker), _approvalAmount);
 
     bytes32 _message = keccak256(
       abi.encode(
@@ -1375,7 +1462,10 @@ contract PermitAndStakeMore is UniStakerTest {
     vm.prank(_depositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        ERC20Permit.ERC2612InvalidSigner.selector, _expectedRecoveredSigner, _depositor
+        IERC20Errors.ERC20InsufficientAllowance.selector,
+        address(uniStaker),
+        _approvalAmount,
+        _stakeMoreAmount
       )
     );
     uniStaker.permitAndStakeMore(_depositId, _stakeMoreAmount, _deadline, _v, _r, _s);

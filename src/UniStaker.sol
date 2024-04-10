@@ -304,7 +304,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     bytes32 _r,
     bytes32 _s
   ) external returns (DepositIdentifier _depositId) {
-    STAKE_TOKEN.permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s);
+    try STAKE_TOKEN.permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {} catch {}
     _depositId = _stake(msg.sender, _amount, _delegatee, _beneficiary);
   }
 
@@ -383,7 +383,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     Deposit storage deposit = deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
 
-    STAKE_TOKEN.permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s);
+    try STAKE_TOKEN.permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {} catch {}
     _stakeMore(deposit, _depositId, _amount);
   }
 
