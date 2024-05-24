@@ -68,7 +68,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     countCall("enableRewardNotifier")
     doCheckpoints
   {
-    vm.assume(_notifier != address(0));
+    vm.assume(_notifier != address(0) && _notifier != address(uniStaker));
     _rewardNotifiers.add(_notifier);
     vm.prank(admin);
     uniStaker.setRewardNotifier(_notifier, true);
@@ -157,9 +157,7 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   function claimReward(uint256 _actorSeed) public countCall("claimReward") doCheckpoints {
     _useActor(_beneficiaries, _actorSeed);
     vm.startPrank(_currentActor);
-    uint256 rewardsClaimed =
-      uniStaker.scaledUnclaimedRewardCheckpoint(_currentActor) / uniStaker.SCALE_FACTOR();
-    uniStaker.claimReward();
+    uint256 rewardsClaimed = uniStaker.claimReward();
     vm.stopPrank();
     ghost_rewardsClaimed += rewardsClaimed;
   }
