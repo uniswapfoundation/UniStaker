@@ -144,6 +144,19 @@ scopelint spec
 
 This command will use the names of the contract's unit tests to generate a human readable spec. It will list each contract, its constituent functions, and the human readable description of functionality each unit test aims to assert.
 
+### Audits
+
+The UniStaker, V3FactoryOwner, and DelegationSurrogate contracts have been extensively audited. The reports for these audits can be found in the [/audits](/audits/) directory.
+
+### Deployments
+
+Production deployments of these contracts are available at the following addresses on Ethereum mainnet:
+
+|Contract|Address|
+|--------|-------|
+|UniStaker|[0xE3071e87a7E6dD19A911Dbf1127BA9dD67Aa6fc8](https://etherscan.io/address/0xe3071e87a7e6dd19a911dbf1127ba9dd67aa6fc8#code)|
+|V3FactoryOwner|[0x2e27332b25Ce245F6628377bc83573A001313C58](https://etherscan.io/address/0x2e27332b25ce245f6628377bc83573a001313c58)|
+
 ## License
 
 The code in this repository is licensed under the [GNU Affero General Public License](LICENSE) unless otherwise indicated.
