@@ -6,7 +6,7 @@ import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 import {console} from "forge-std/console.sol";
 import {AddressSet, LibAddressSet} from "../helpers/AddressSet.sol";
-import {UniStaker} from "src/UniStaker.sol";
+import {UniStaker, IUniStaker} from "src/UniStaker.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
@@ -125,9 +125,10 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     _useActor(_depositors, _actorSeed);
     vm.assume(_currentActor != address(0));
     vm.assume(_depositIds[_currentActor].length > 0);
-    UniStaker.DepositIdentifier _depositId =
-      UniStaker.DepositIdentifier.wrap(_getActorRandDepositId(_actorDepositSeed));
-    (uint96 _balance,,,) = uniStaker.deposits(_depositId);
+    IUniStaker.DepositIdentifier _depositId =
+      IUniStaker.DepositIdentifier.wrap(_getActorRandDepositId(_actorDepositSeed));
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
+    uint96 _balance = _deposit.balance;
     _amount = uint96(bound(_amount, 0, _balance));
     vm.startPrank(_currentActor);
     stakeToken.approve(address(uniStaker), _amount);
@@ -144,9 +145,10 @@ contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
     _useActor(_depositors, _actorSeed);
     vm.assume(_currentActor != address(0));
     vm.assume(_depositIds[_currentActor].length > 0);
-    UniStaker.DepositIdentifier _depositId =
-      UniStaker.DepositIdentifier.wrap(_getActorRandDepositId(_actorDepositSeed));
-    (uint96 _balance,,,) = uniStaker.deposits(_depositId);
+    IUniStaker.DepositIdentifier _depositId =
+      IUniStaker.DepositIdentifier.wrap(_getActorRandDepositId(_actorDepositSeed));
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
+    uint96 _balance = _deposit.balance;
     _amount = uint96(bound(_amount, 0, _balance));
     vm.startPrank(_currentActor);
     uniStaker.withdraw(_depositId, _amount);

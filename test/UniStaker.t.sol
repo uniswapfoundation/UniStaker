@@ -2,7 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Vm, Test, stdStorage, StdStorage, console2} from "forge-std/Test.sol";
-import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
+import {UniStaker, IUniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
 import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
 import {ERC20VotesMock, ERC20Permit} from "test/mocks/MockERC20Votes.sol";
 import {IERC20Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
@@ -95,7 +95,7 @@ contract UniStakerTest is Test, PercentAssertions {
 
   function _stake(address _depositor, uint96 _amount, address _delegatee)
     internal
-    returns (UniStaker.DepositIdentifier _depositId)
+    returns (IUniStaker.DepositIdentifier _depositId)
   {
     vm.assume(_delegatee != address(0));
 
@@ -110,7 +110,7 @@ contract UniStakerTest is Test, PercentAssertions {
 
   function _stake(address _depositor, uint96 _amount, address _delegatee, address _beneficiary)
     internal
-    returns (UniStaker.DepositIdentifier _depositId)
+    returns (IUniStaker.DepositIdentifier _depositId)
   {
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
@@ -123,24 +123,24 @@ contract UniStakerTest is Test, PercentAssertions {
     _assumeSafeDepositorAndSurrogate(_depositor, _delegatee);
   }
 
-  function _fetchDeposit(UniStaker.DepositIdentifier _depositId)
-    internal
-    view
-    returns (UniStaker.Deposit memory)
-  {
-    (uint96 _balance, address _owner, address _delegatee, address _beneficiary) =
-      uniStaker.deposits(_depositId);
-    return UniStaker.Deposit({
-      balance: _balance,
-      owner: _owner,
-      delegatee: _delegatee,
-      beneficiary: _beneficiary
-    });
-  }
+  // function _fetchDeposit(IUniStaker.DepositIdentifier _depositId)
+  //   internal
+  //   view
+  //   returns (IUniStaker.Deposit memory)
+  // {
+  //   (uint96 _balance, address _owner, address _delegatee, address _beneficiary) =
+  //     uniStaker.deposits(_depositId);
+  //   return IUniStaker.Deposit({
+  //     balance: _balance,
+  //     owner: _owner,
+  //     delegatee: _delegatee,
+  //     beneficiary: _beneficiary
+  //   });
+  // }
 
   function _boundMintAndStake(address _depositor, uint96 _amount, address _delegatee)
     internal
-    returns (uint96 _boundedAmount, UniStaker.DepositIdentifier _depositId)
+    returns (uint96 _boundedAmount, IUniStaker.DepositIdentifier _depositId)
   {
     _boundedAmount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _boundedAmount);
@@ -152,7 +152,7 @@ contract UniStakerTest is Test, PercentAssertions {
     uint96 _amount,
     address _delegatee,
     address _beneficiary
-  ) internal returns (uint96 _boundedAmount, UniStaker.DepositIdentifier _depositId) {
+  ) internal returns (uint96 _boundedAmount, IUniStaker.DepositIdentifier _depositId) {
     _boundedAmount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _boundedAmount);
     _depositId = _stake(_depositor, _boundedAmount, _delegatee, _beneficiary);
@@ -234,16 +234,16 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    IUniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
 
     vm.assume(_delegatee != address(0));
 
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
-    emit UniStaker.StakeDeposited(
+    emit IUniStaker.StakeDeposited(
       _depositor,
-      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      IUniStaker.DepositIdentifier.wrap(IUniStaker.DepositIdentifier.unwrap(depositId) + 1),
       _amount,
       _amount
     );
@@ -259,15 +259,15 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    IUniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
 
     vm.assume(_delegatee != address(0));
 
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
-    emit UniStaker.BeneficiaryAltered(
-      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+    emit IUniStaker.BeneficiaryAltered(
+      IUniStaker.DepositIdentifier.wrap(IUniStaker.DepositIdentifier.unwrap(depositId) + 1),
       address(0),
       _depositor
     );
@@ -283,15 +283,15 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    IUniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
 
     vm.assume(_delegatee != address(0));
 
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
-    emit UniStaker.DelegateeAltered(
-      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+    emit IUniStaker.DelegateeAltered(
+      IUniStaker.DepositIdentifier.wrap(IUniStaker.DepositIdentifier.unwrap(depositId) + 1),
       address(0),
       _delegatee
     );
@@ -308,16 +308,16 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    IUniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
 
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
-    emit UniStaker.StakeDeposited(
+    emit IUniStaker.StakeDeposited(
       _depositor,
-      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+      IUniStaker.DepositIdentifier.wrap(IUniStaker.DepositIdentifier.unwrap(depositId) + 1),
       _amount,
       _amount
     );
@@ -334,15 +334,15 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    IUniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
 
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
-    emit UniStaker.BeneficiaryAltered(
-      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+    emit IUniStaker.BeneficiaryAltered(
+      IUniStaker.DepositIdentifier.wrap(IUniStaker.DepositIdentifier.unwrap(depositId) + 1),
       address(0),
       _beneficiary
     );
@@ -359,15 +359,15 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    IUniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
 
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
     vm.startPrank(_depositor);
     govToken.approve(address(uniStaker), _amount);
     vm.expectEmit();
-    emit UniStaker.DelegateeAltered(
-      UniStaker.DepositIdentifier.wrap(UniStaker.DepositIdentifier.unwrap(depositId) + 1),
+    emit IUniStaker.DelegateeAltered(
+      IUniStaker.DepositIdentifier.wrap(IUniStaker.DepositIdentifier.unwrap(depositId) + 1),
       address(0),
       _delegatee
     );
@@ -520,8 +520,8 @@ contract Stake is UniStakerTest {
     _amount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _amount);
 
-    UniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     assertEq(_deposit.balance, _amount);
     assertEq(_deposit.owner, _depositor);
     assertEq(_deposit.delegatee, _delegatee);
@@ -539,10 +539,10 @@ contract Stake is UniStakerTest {
     _mintGovToken(_depositor, _amount1 + _amount2);
 
     // Perform both deposits and track their identifiers separately
-    UniStaker.DepositIdentifier _depositId1 = _stake(_depositor, _amount1, _delegatee1);
-    UniStaker.DepositIdentifier _depositId2 = _stake(_depositor, _amount2, _delegatee2);
-    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
-    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+    IUniStaker.DepositIdentifier _depositId1 = _stake(_depositor, _amount1, _delegatee1);
+    IUniStaker.DepositIdentifier _depositId2 = _stake(_depositor, _amount2, _delegatee2);
+    IUniStaker.Deposit memory _deposit1 = uniStaker.deposits(_depositId1);
+    IUniStaker.Deposit memory _deposit2 = uniStaker.deposits(_depositId2);
 
     // Check that the deposits have been recorded independently
     assertEq(_deposit1.balance, _amount1);
@@ -567,10 +567,10 @@ contract Stake is UniStakerTest {
     _mintGovToken(_depositor2, _amount2);
 
     // Perform both deposits and track their identifiers separately
-    UniStaker.DepositIdentifier _depositId1 = _stake(_depositor1, _amount1, _delegatee1);
-    UniStaker.DepositIdentifier _depositId2 = _stake(_depositor2, _amount2, _delegatee2);
-    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
-    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+    IUniStaker.DepositIdentifier _depositId1 = _stake(_depositor1, _amount1, _delegatee1);
+    IUniStaker.DepositIdentifier _depositId2 = _stake(_depositor2, _amount2, _delegatee2);
+    IUniStaker.Deposit memory _deposit1 = uniStaker.deposits(_depositId1);
+    IUniStaker.Deposit memory _deposit2 = uniStaker.deposits(_depositId2);
 
     // Check that the deposits have been recorded independently
     assertEq(_deposit1.balance, _amount1);
@@ -589,8 +589,8 @@ contract Stake is UniStakerTest {
     _amount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _amount);
 
-    UniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(uniStaker.earningPower(_depositor), _amount);
     assertEq(_deposit.beneficiary, _depositor);
@@ -605,8 +605,8 @@ contract Stake is UniStakerTest {
     _amount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _amount);
 
-    UniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.DepositIdentifier _depositId = _stake(_depositor, _amount, _delegatee, _beneficiary);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(uniStaker.earningPower(_beneficiary), _amount);
     assertEq(_deposit.beneficiary, _beneficiary);
@@ -626,12 +626,12 @@ contract Stake is UniStakerTest {
     _mintGovToken(_depositor, _amount1 + _amount2);
 
     // Perform both deposits and track their identifiers separately
-    UniStaker.DepositIdentifier _depositId1 =
+    IUniStaker.DepositIdentifier _depositId1 =
       _stake(_depositor, _amount1, _delegatee, _beneficiary1);
-    UniStaker.DepositIdentifier _depositId2 =
+    IUniStaker.DepositIdentifier _depositId2 =
       _stake(_depositor, _amount2, _delegatee, _beneficiary2);
-    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
-    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+    IUniStaker.Deposit memory _deposit1 = uniStaker.deposits(_depositId1);
+    IUniStaker.Deposit memory _deposit2 = uniStaker.deposits(_depositId2);
 
     // Check that the earning power has been recorded independently
     assertEq(_deposit1.beneficiary, _beneficiary1);
@@ -654,26 +654,26 @@ contract Stake is UniStakerTest {
     _mintGovToken(_depositor2, _amount2);
 
     // Perform both deposits and track their identifiers separately
-    UniStaker.DepositIdentifier _depositId1 =
+    IUniStaker.DepositIdentifier _depositId1 =
       _stake(_depositor1, _amount1, _delegatee, _beneficiary);
-    UniStaker.DepositIdentifier _depositId2 =
+    IUniStaker.DepositIdentifier _depositId2 =
       _stake(_depositor2, _amount2, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit1 = _fetchDeposit(_depositId1);
-    UniStaker.Deposit memory _deposit2 = _fetchDeposit(_depositId2);
+    IUniStaker.Deposit memory _deposit1 = uniStaker.deposits(_depositId1);
+    IUniStaker.Deposit memory _deposit2 = uniStaker.deposits(_depositId2);
 
     assertEq(_deposit1.beneficiary, _beneficiary);
     assertEq(_deposit2.beneficiary, _beneficiary);
     assertEq(uniStaker.earningPower(_beneficiary), _amount1 + _amount2);
   }
 
-  mapping(UniStaker.DepositIdentifier depositId => bool isUsed) isIdUsed;
+  mapping(IUniStaker.DepositIdentifier depositId => bool isUsed) isIdUsed;
 
   function test_NeverReusesADepositIdentifier() public {
     address _depositor = address(0xdeadbeef);
     uint96 _amount = 116;
     address _delegatee = address(0xaceface);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
 
     // Repeat the deposit over and over ensuring a new DepositIdentifier is assigned each time.
     for (uint256 _i; _i < 5000; _i++) {
@@ -713,7 +713,7 @@ contract Stake is UniStakerTest {
     govToken.approve(address(uniStaker), _amount);
 
     vm.prank(_depositor);
-    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidAddress.selector);
     uniStaker.stake(_amount, address(0));
   }
 
@@ -729,7 +729,7 @@ contract Stake is UniStakerTest {
     govToken.approve(address(uniStaker), _amount);
 
     vm.prank(_depositor);
-    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidAddress.selector);
     uniStaker.stake(_amount, _delegatee, address(0));
   }
 }
@@ -772,9 +772,9 @@ contract PermitAndStake is UniStakerTest {
     (uint8 _v, bytes32 _r, bytes32 _s) = vm.sign(_depositorPrivateKey, _messageHash);
 
     vm.prank(_depositor);
-    UniStaker.DepositIdentifier _depositId =
+    IUniStaker.DepositIdentifier _depositId =
       uniStaker.permitAndStake(_depositAmount, _delegatee, _beneficiary, _deadline, _v, _r, _s);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.balance, _depositAmount);
     assertEq(_deposit.owner, _depositor);
@@ -911,11 +911,11 @@ contract StakeOnBehalf is UniStakerTest {
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
     vm.prank(_sender);
-    UniStaker.DepositIdentifier _depositId = uniStaker.stakeOnBehalf(
+    IUniStaker.DepositIdentifier _depositId = uniStaker.stakeOnBehalf(
       _depositAmount, _delegatee, _beneficiary, _depositor, _deadline, _signature
     );
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.balance, _depositAmount);
     assertEq(_deposit.owner, _depositor);
@@ -964,7 +964,7 @@ contract StakeOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.stakeOnBehalf(
       _depositAmount, _delegatee, _beneficiary, _depositor, _deadline, _signature
@@ -1010,7 +1010,7 @@ contract StakeOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__ExpiredDeadline.selector);
+    vm.expectRevert(IUniStaker.UniStaker__ExpiredDeadline.selector);
     vm.prank(_sender);
     uniStaker.stakeOnBehalf(
       _depositAmount, _delegatee, _beneficiary, _depositor, _deadline, _signature
@@ -1072,7 +1072,7 @@ contract StakeOnBehalf is UniStakerTest {
     if (_randomSeed % 6 == 5) _signature = _modifySignature(_signature, _randomSeed);
 
     vm.prank(_sender);
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     uniStaker.stakeOnBehalf(
       _depositAmount, _delegatee, _beneficiary, _depositor, _deadline, _signature
     );
@@ -1087,10 +1087,10 @@ contract StakeMore is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     DelegationSurrogate _surrogate = uniStaker.surrogates(_deposit.delegatee);
 
     _addAmount = _boundToRealisticStake(_addAmount);
@@ -1111,7 +1111,7 @@ contract StakeMore is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -1133,7 +1133,7 @@ contract StakeMore is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -1155,7 +1155,7 @@ contract StakeMore is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -1177,7 +1177,7 @@ contract StakeMore is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -1189,7 +1189,7 @@ contract StakeMore is UniStakerTest {
     uniStaker.stakeMore(_depositId, _addAmount);
     vm.stopPrank();
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.balance, _depositAmount + _addAmount);
   }
@@ -1202,7 +1202,7 @@ contract StakeMore is UniStakerTest {
     address _beneficiary
   ) public {
     uint96 _totalAdditionalStake;
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
     // Second stake
@@ -1218,7 +1218,7 @@ contract StakeMore is UniStakerTest {
     uniStaker.stakeMore(_depositId, _addAmount);
 
     vm.expectEmit();
-    emit UniStaker.StakeDeposited(
+    emit IUniStaker.StakeDeposited(
       _depositor, _depositId, _addAmount, _depositAmount + _totalAdditionalStake
     );
 
@@ -1236,7 +1236,7 @@ contract StakeMore is UniStakerTest {
   ) public {
     vm.assume(_notDepositor != _depositor);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -1249,7 +1249,7 @@ contract StakeMore is UniStakerTest {
     vm.prank(_notDepositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     uniStaker.stakeMore(_depositId, _addAmount);
@@ -1257,7 +1257,7 @@ contract StakeMore is UniStakerTest {
 
   function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
     address _depositor,
-    UniStaker.DepositIdentifier _depositId,
+    IUniStaker.DepositIdentifier _depositId,
     uint96 _addAmount
   ) public {
     vm.assume(_depositor != address(0));
@@ -1269,7 +1269,7 @@ contract StakeMore is UniStakerTest {
     vm.prank(_depositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
       )
     );
     uniStaker.stakeMore(_depositId, _addAmount);
@@ -1293,7 +1293,7 @@ contract PermitAndStakeMore is UniStakerTest {
     address _depositor = vm.addr(_depositorPrivateKey);
     _deadline = bound(_deadline, block.timestamp, type(uint256).max);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
 
@@ -1325,7 +1325,7 @@ contract PermitAndStakeMore is UniStakerTest {
       uniStaker.permitAndStakeMore(_depositId, _stakeMoreAmount, _deadline, _v, _r, _s);
     }
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.balance, _initialDepositAmount + _stakeMoreAmount);
     assertEq(_deposit.owner, _depositor);
@@ -1342,7 +1342,7 @@ contract PermitAndStakeMore is UniStakerTest {
   ) public {
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
     (address _depositor, uint256 _depositorPrivateKey) = makeAddrAndKey("depositor");
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
     _stakeMoreAmount = uint96(bound(_stakeMoreAmount, 0, type(uint96).max - _initialDepositAmount));
@@ -1387,7 +1387,7 @@ contract PermitAndStakeMore is UniStakerTest {
     vm.assume(_depositor != _notDepositor);
     _deadline = bound(_deadline, block.timestamp, type(uint256).max);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
 
@@ -1414,7 +1414,7 @@ contract PermitAndStakeMore is UniStakerTest {
       vm.prank(_notDepositor);
       vm.expectRevert(
         abi.encodeWithSelector(
-          UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+          IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
         )
       );
       uniStaker.permitAndStakeMore(_depositId, _stakeMoreAmount, _deadline, _v, _r, _s);
@@ -1436,7 +1436,7 @@ contract PermitAndStakeMore is UniStakerTest {
     uint256 _wrongNonce = 1;
     uint256 _approvalAmount = _stakeMoreAmount - 1;
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
     _mintGovToken(_depositor, _stakeMoreAmount);
@@ -1490,10 +1490,10 @@ contract StakeMoreOnBehalf is UniStakerTest {
     _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
     address _depositor = vm.addr(_depositorPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     _stakeMoreAmount = _boundToRealisticStake(_stakeMoreAmount);
     _mintGovToken(_depositor, _stakeMoreAmount);
@@ -1524,7 +1524,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
     vm.prank(_sender);
     uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _deadline, _signature);
 
-    _deposit = _fetchDeposit(_depositId);
+    _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.balance, _initialDepositAmount + _stakeMoreAmount);
     assertEq(_deposit.owner, _depositor);
@@ -1554,7 +1554,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
 
@@ -1580,7 +1580,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _deadline, _signature);
   }
@@ -1605,7 +1605,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
 
@@ -1631,7 +1631,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__ExpiredDeadline.selector);
+    vm.expectRevert(IUniStaker.UniStaker__ExpiredDeadline.selector);
     vm.prank(_sender);
     uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _deadline, _signature);
   }
@@ -1658,13 +1658,13 @@ contract StakeMoreOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     vm.prank(_sender);
@@ -1692,7 +1692,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_initialDepositAmount, _depositId) =
       _boundMintAndStake(_depositor, _initialDepositAmount, _delegatee, _beneficiary);
 
@@ -1729,7 +1729,7 @@ contract StakeMoreOnBehalf is UniStakerTest {
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
     if (_randomSeed % 4 == 3) _signature = _modifySignature(_signature, _randomSeed);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.stakeMoreOnBehalf(_depositId, _stakeMoreAmount, _depositor, _deadline, _signature);
   }
@@ -1745,7 +1745,7 @@ contract AlterDelegatee is UniStakerTest {
   ) public {
     vm.assume(_newDelegatee != address(0) && _newDelegatee != _firstDelegatee);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
     address _firstSurrogate = address(uniStaker.surrogates(_firstDelegatee));
@@ -1753,7 +1753,7 @@ contract AlterDelegatee is UniStakerTest {
     vm.prank(_depositor);
     uniStaker.alterDelegatee(_depositId, _newDelegatee);
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     address _newSurrogate = address(uniStaker.surrogates(_deposit.delegatee));
 
     assertEq(_deposit.delegatee, _newDelegatee);
@@ -1767,7 +1767,7 @@ contract AlterDelegatee is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
     address _beforeSurrogate = address(uniStaker.surrogates(_delegatee));
@@ -1777,7 +1777,7 @@ contract AlterDelegatee is UniStakerTest {
     vm.prank(_depositor);
     uniStaker.alterDelegatee(_depositId, _delegatee);
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     address _afterSurrogate = address(uniStaker.surrogates(_deposit.delegatee));
 
     assertEq(_deposit.delegatee, _delegatee);
@@ -1794,12 +1794,12 @@ contract AlterDelegatee is UniStakerTest {
   ) public {
     vm.assume(_newDelegatee != address(0) && _newDelegatee != _firstDelegatee);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
 
     vm.expectEmit();
-    emit UniStaker.DelegateeAltered(_depositId, _firstDelegatee, _newDelegatee);
+    emit IUniStaker.DelegateeAltered(_depositId, _firstDelegatee, _newDelegatee);
 
     vm.prank(_depositor);
     uniStaker.alterDelegatee(_depositId, _newDelegatee);
@@ -1817,14 +1817,14 @@ contract AlterDelegatee is UniStakerTest {
       _depositor != _notDepositor && _newDelegatee != address(0) && _newDelegatee != _firstDelegatee
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _firstDelegatee, _beneficiary);
 
     vm.prank(_notDepositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     uniStaker.alterDelegatee(_depositId, _newDelegatee);
@@ -1832,7 +1832,7 @@ contract AlterDelegatee is UniStakerTest {
 
   function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
     address _depositor,
-    UniStaker.DepositIdentifier _depositId,
+    IUniStaker.DepositIdentifier _depositId,
     address _newDelegatee
   ) public {
     vm.assume(_depositor != address(0) && _newDelegatee != address(0));
@@ -1843,7 +1843,7 @@ contract AlterDelegatee is UniStakerTest {
     vm.prank(_depositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
       )
     );
     uniStaker.alterDelegatee(_depositId, _newDelegatee);
@@ -1854,11 +1854,11 @@ contract AlterDelegatee is UniStakerTest {
     uint96 _depositAmount,
     address _delegatee
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
 
     vm.prank(_depositor);
-    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidAddress.selector);
     uniStaker.alterDelegatee(_depositId, address(0));
   }
 }
@@ -1884,9 +1884,9 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
     _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
     address _depositor = vm.addr(_depositorPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
       _currentNonce
@@ -1910,7 +1910,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
     vm.prank(_sender);
     uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _deadline, _signature);
 
-    _deposit = _fetchDeposit(_depositId);
+    _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.delegatee, _newDelegatee);
   }
@@ -1940,7 +1940,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     bytes32 _message = keccak256(
@@ -1953,7 +1953,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _deadline, _signature);
   }
@@ -1981,7 +1981,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     bytes32 _message = keccak256(
@@ -1999,7 +1999,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__ExpiredDeadline.selector);
+    vm.expectRevert(IUniStaker.UniStaker__ExpiredDeadline.selector);
     vm.prank(_sender);
     uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _deadline, _signature);
   }
@@ -2023,12 +2023,12 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
     _amount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _amount);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     vm.prank(_sender);
@@ -2058,7 +2058,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     bytes32 _message = keccak256(
@@ -2087,7 +2087,7 @@ contract AlterDelegateeOnBehalf is UniStakerTest {
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
     if (_randomSeed % 4 == 3) _signature = _modifySignature(_signature, _randomSeed);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.alterDelegateeOnBehalf(_depositId, _newDelegatee, _depositor, _deadline, _signature);
   }
@@ -2103,14 +2103,14 @@ contract AlterBeneficiary is UniStakerTest {
   ) public {
     vm.assume(_newBeneficiary != address(0) && _newBeneficiary != _firstBeneficiary);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
 
     vm.prank(_depositor);
     uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.beneficiary, _newBeneficiary);
     assertEq(uniStaker.earningPower(_newBeneficiary), _depositAmount);
@@ -2123,7 +2123,7 @@ contract AlterBeneficiary is UniStakerTest {
     address _delegatee,
     address _beneficiary
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -2132,7 +2132,7 @@ contract AlterBeneficiary is UniStakerTest {
     vm.prank(_depositor);
     uniStaker.alterBeneficiary(_depositId, _beneficiary);
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.beneficiary, _beneficiary);
     assertEq(uniStaker.earningPower(_beneficiary), _depositAmount);
@@ -2147,12 +2147,12 @@ contract AlterBeneficiary is UniStakerTest {
   ) public {
     vm.assume(_newBeneficiary != address(0) && _newBeneficiary != _firstBeneficiary);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
 
     vm.expectEmit();
-    emit UniStaker.BeneficiaryAltered(_depositId, _firstBeneficiary, _newBeneficiary);
+    emit IUniStaker.BeneficiaryAltered(_depositId, _firstBeneficiary, _newBeneficiary);
 
     vm.prank(_depositor);
     uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
@@ -2171,14 +2171,14 @@ contract AlterBeneficiary is UniStakerTest {
         && _newBeneficiary != _firstBeneficiary
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _firstBeneficiary);
 
     vm.prank(_notDepositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
@@ -2186,7 +2186,7 @@ contract AlterBeneficiary is UniStakerTest {
 
   function testFuzz_RevertIf_TheDepositIdentifierIsInvalid(
     address _depositor,
-    UniStaker.DepositIdentifier _depositId,
+    IUniStaker.DepositIdentifier _depositId,
     address _newBeneficiary
   ) public {
     vm.assume(_depositor != address(0) && _newBeneficiary != address(0));
@@ -2197,7 +2197,7 @@ contract AlterBeneficiary is UniStakerTest {
     vm.prank(_depositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _depositor
       )
     );
     uniStaker.alterBeneficiary(_depositId, _newBeneficiary);
@@ -2208,11 +2208,11 @@ contract AlterBeneficiary is UniStakerTest {
     uint96 _depositAmount,
     address _delegatee
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
 
     vm.prank(_depositor);
-    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidAddress.selector);
     uniStaker.alterBeneficiary(_depositId, address(0));
   }
 }
@@ -2238,9 +2238,9 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
     _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
     address _depositor = vm.addr(_depositorPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
 
     stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
       _currentNonce
@@ -2266,7 +2266,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
       _depositId, _newBeneficiary, _depositor, _deadline, _signature
     );
 
-    _deposit = _fetchDeposit(_depositId);
+    _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.beneficiary, _newBeneficiary);
   }
@@ -2296,7 +2296,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     bytes32 _message = keccak256(
@@ -2314,7 +2314,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.alterBeneficiaryOnBehalf(
       _depositId, _newBeneficiary, _depositor, _deadline, _signature
@@ -2344,7 +2344,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     bytes32 _message = keccak256(
@@ -2362,7 +2362,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__ExpiredDeadline.selector);
+    vm.expectRevert(IUniStaker.UniStaker__ExpiredDeadline.selector);
     vm.prank(_sender);
     uniStaker.alterBeneficiaryOnBehalf(
       _depositId, _newBeneficiary, _depositor, _deadline, _signature
@@ -2388,12 +2388,12 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
     _amount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _amount);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     vm.prank(_sender);
@@ -2423,7 +2423,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     bytes32 _message = keccak256(
@@ -2452,7 +2452,7 @@ contract AlterBeneficiaryOnBehalf is UniStakerTest {
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
     if (_randomSeed % 4 == 3) _signature = _modifySignature(_signature, _randomSeed);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.alterBeneficiaryOnBehalf(
       _depositId, _newBeneficiary, _depositor, _deadline, _signature
@@ -2467,14 +2467,14 @@ contract Withdraw is UniStakerTest {
     address _delegatee,
     uint96 _withdrawalAmount
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
     _withdrawalAmount = uint96(bound(_withdrawalAmount, 0, _depositAmount));
 
     vm.prank(_depositor);
     uniStaker.withdraw(_depositId, _withdrawalAmount);
 
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     address _surrogate = address(uniStaker.surrogates(_deposit.delegatee));
 
     assertEq(govToken.balanceOf(_depositor), _withdrawalAmount);
@@ -2488,7 +2488,7 @@ contract Withdraw is UniStakerTest {
     address _delegatee,
     uint96 _withdrawalAmount
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
     _withdrawalAmount = uint96(bound(_withdrawalAmount, 0, _depositAmount));
 
@@ -2509,9 +2509,9 @@ contract Withdraw is UniStakerTest {
     uint96 _withdrawalAmount2
   ) public {
     // Make two separate deposits
-    UniStaker.DepositIdentifier _depositId1;
+    IUniStaker.DepositIdentifier _depositId1;
     (_depositAmount1, _depositId1) = _boundMintAndStake(_depositor1, _depositAmount1, _delegatee1);
-    UniStaker.DepositIdentifier _depositId2;
+    IUniStaker.DepositIdentifier _depositId2;
     (_depositAmount2, _depositId2) = _boundMintAndStake(_depositor2, _depositAmount2, _delegatee2);
 
     // Calculate withdrawal amounts
@@ -2538,9 +2538,9 @@ contract Withdraw is UniStakerTest {
     uint96 _withdrawalAmount
   ) public {
     // Make two separate deposits
-    UniStaker.DepositIdentifier _depositId1;
+    IUniStaker.DepositIdentifier _depositId1;
     (_depositAmount1, _depositId1) = _boundMintAndStake(_depositor, _depositAmount1, _delegatee1);
-    UniStaker.DepositIdentifier _depositId2;
+    IUniStaker.DepositIdentifier _depositId2;
     (_depositAmount2, _depositId2) = _boundMintAndStake(_depositor, _depositAmount2, _delegatee2);
 
     // Withdraw part of the first deposit
@@ -2562,7 +2562,7 @@ contract Withdraw is UniStakerTest {
     address _delegatee,
     uint96 _withdrawalAmount
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
     _withdrawalAmount = uint96(bound(_withdrawalAmount, 0, _depositAmount));
 
@@ -2579,7 +2579,7 @@ contract Withdraw is UniStakerTest {
     address _beneficiary,
     uint96 _withdrawalAmount
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
     _withdrawalAmount = uint96(bound(_withdrawalAmount, 0, _depositAmount));
@@ -2600,12 +2600,12 @@ contract Withdraw is UniStakerTest {
     uint96 _withdrawalAmount1,
     uint96 _withdrawalAmount2
   ) public {
-    UniStaker.DepositIdentifier _depositId1;
+    IUniStaker.DepositIdentifier _depositId1;
     (_depositAmount1, _depositId1) =
       _boundMintAndStake(_depositor1, _depositAmount1, _delegatee, _beneficiary);
     _withdrawalAmount1 = uint96(bound(_withdrawalAmount1, 0, _depositAmount1));
 
-    UniStaker.DepositIdentifier _depositId2;
+    IUniStaker.DepositIdentifier _depositId2;
     (_depositAmount2, _depositId2) =
       _boundMintAndStake(_depositor2, _depositAmount2, _delegatee, _beneficiary);
     _withdrawalAmount2 = uint96(bound(_withdrawalAmount2, 0, _depositAmount2));
@@ -2638,12 +2638,12 @@ contract Withdraw is UniStakerTest {
   ) public {
     vm.assume(_beneficiary1 != _beneficiary2);
 
-    UniStaker.DepositIdentifier _depositId1;
+    IUniStaker.DepositIdentifier _depositId1;
     (_depositAmount1, _depositId1) =
       _boundMintAndStake(_depositor, _depositAmount1, _delegatee, _beneficiary1);
     _withdrawalAmount1 = uint96(bound(_withdrawalAmount1, 0, _depositAmount1));
 
-    UniStaker.DepositIdentifier _depositId2;
+    IUniStaker.DepositIdentifier _depositId2;
     (_depositAmount2, _depositId2) =
       _boundMintAndStake(_depositor, _depositAmount2, _delegatee, _beneficiary2);
     _withdrawalAmount2 = uint96(bound(_withdrawalAmount2, 0, _depositAmount2));
@@ -2674,12 +2674,12 @@ contract Withdraw is UniStakerTest {
   ) public {
     vm.assume(_beneficiary1 != _beneficiary2);
 
-    UniStaker.DepositIdentifier _depositId1;
+    IUniStaker.DepositIdentifier _depositId1;
     (_depositAmount1, _depositId1) =
       _boundMintAndStake(_depositor1, _depositAmount1, _delegatee, _beneficiary1);
     _withdrawalAmount1 = uint96(bound(_withdrawalAmount1, 0, _depositAmount1));
 
-    UniStaker.DepositIdentifier _depositId2;
+    IUniStaker.DepositIdentifier _depositId2;
     (_depositAmount2, _depositId2) =
       _boundMintAndStake(_depositor2, _depositAmount2, _delegatee, _beneficiary2);
     _withdrawalAmount2 = uint96(bound(_withdrawalAmount2, 0, _depositAmount2));
@@ -2703,12 +2703,12 @@ contract Withdraw is UniStakerTest {
     address _delegatee,
     uint96 _withdrawalAmount
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) = _boundMintAndStake(_depositor, _depositAmount, _delegatee);
     _withdrawalAmount = uint96(bound(_withdrawalAmount, 0, _depositAmount));
 
     vm.expectEmit();
-    emit UniStaker.StakeWithdrawn(_depositId, _withdrawalAmount, _depositAmount - _withdrawalAmount);
+    emit IUniStaker.StakeWithdrawn(_depositId, _withdrawalAmount, _depositAmount - _withdrawalAmount);
 
     vm.prank(_depositor);
     uniStaker.withdraw(_depositId, _withdrawalAmount);
@@ -2720,14 +2720,14 @@ contract Withdraw is UniStakerTest {
     address _delegatee,
     address _notDepositor
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
     vm.assume(_depositor != _notDepositor);
 
     vm.prank(_notDepositor);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     uniStaker.withdraw(_depositId, _amount);
@@ -2739,7 +2739,7 @@ contract Withdraw is UniStakerTest {
     uint96 _amountOver,
     address _delegatee
   ) public {
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
     _amountOver = uint96(bound(_amountOver, 1, type(uint128).max));
 
@@ -2767,10 +2767,10 @@ contract WithdrawOnBehalf is UniStakerTest {
     _depositorPrivateKey = bound(_depositorPrivateKey, 1, 100e18);
     address _depositor = vm.addr(_depositorPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
-    UniStaker.Deposit memory _deposit = _fetchDeposit(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     _withdrawAmount = uint96(bound(_withdrawAmount, 0, _depositAmount));
 
     stdstore.target(address(uniStaker)).sig("nonces(address)").with_key(_depositor).checked_write(
@@ -2795,7 +2795,7 @@ contract WithdrawOnBehalf is UniStakerTest {
     vm.prank(_sender);
     uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _deadline, _signature);
 
-    _deposit = _fetchDeposit(_depositId);
+    _deposit = uniStaker.deposits(_depositId);
 
     assertEq(_deposit.balance, _depositAmount - _withdrawAmount);
   }
@@ -2822,7 +2822,7 @@ contract WithdrawOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -2841,7 +2841,7 @@ contract WithdrawOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _deadline, _signature);
   }
@@ -2866,7 +2866,7 @@ contract WithdrawOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -2885,7 +2885,7 @@ contract WithdrawOnBehalf is UniStakerTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__ExpiredDeadline.selector);
+    vm.expectRevert(IUniStaker.UniStaker__ExpiredDeadline.selector);
     vm.prank(_sender);
     uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _deadline, _signature);
   }
@@ -2909,12 +2909,12 @@ contract WithdrawOnBehalf is UniStakerTest {
     _amount = _boundMintAmount(_amount);
     _mintGovToken(_depositor, _amount);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee, _beneficiary);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not owner"), _notDepositor
       )
     );
     vm.prank(_sender);
@@ -2942,7 +2942,7 @@ contract WithdrawOnBehalf is UniStakerTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -2972,7 +2972,7 @@ contract WithdrawOnBehalf is UniStakerTest {
     bytes memory _signature = _sign(_depositorPrivateKey, _messageHash);
     if (_randomSeed % 4 == 3) _signature = _modifySignature(_signature, _randomSeed);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.withdrawOnBehalf(_depositId, _withdrawAmount, _depositor, _deadline, _signature);
   }
@@ -3012,7 +3012,7 @@ contract SetRewardNotifier is UniStakerTest {
     vm.prank(_notAdmin);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not admin"), _notAdmin
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not admin"), _notAdmin
       )
     );
     uniStaker.setRewardNotifier(_newRewardNotifier, _isEnabled);
@@ -3045,7 +3045,7 @@ contract SetAdmin is UniStakerTest {
     vm.prank(_notAdmin);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not admin"), _notAdmin
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not admin"), _notAdmin
       )
     );
     uniStaker.setAdmin(_newAdmin);
@@ -3053,7 +3053,7 @@ contract SetAdmin is UniStakerTest {
 
   function test_RevertIf_NewAdminAddressIsZeroAddress() public {
     vm.prank(admin);
-    vm.expectRevert(UniStaker.UniStaker__InvalidAddress.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidAddress.selector);
     uniStaker.setAdmin(address(0));
   }
 }
@@ -3288,7 +3288,7 @@ contract NotifyRewardAmount is UniStakerRewardsTest {
     rewardToken.transfer(address(uniStaker), _amount);
 
     vm.expectEmit();
-    emit UniStaker.RewardNotified(_amount, rewardNotifier);
+    emit IUniStaker.RewardNotified(_amount, rewardNotifier);
 
     uniStaker.notifyRewardAmount(_amount);
     vm.stopPrank();
@@ -3306,7 +3306,7 @@ contract NotifyRewardAmount is UniStakerRewardsTest {
     rewardToken.transfer(address(uniStaker), _amount);
     vm.expectRevert(
       abi.encodeWithSelector(
-        UniStaker.UniStaker__Unauthorized.selector, bytes32("not notifier"), _notNotifier
+        IUniStaker.UniStaker__Unauthorized.selector, bytes32("not notifier"), _notNotifier
       )
     );
     uniStaker.notifyRewardAmount(_amount);
@@ -3320,7 +3320,7 @@ contract NotifyRewardAmount is UniStakerRewardsTest {
 
     vm.startPrank(rewardNotifier);
     rewardToken.transfer(address(uniStaker), _amount);
-    vm.expectRevert(UniStaker.UniStaker__InvalidRewardRate.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidRewardRate.selector);
     uniStaker.notifyRewardAmount(_amount);
     vm.stopPrank();
   }
@@ -3342,7 +3342,7 @@ contract NotifyRewardAmount is UniStakerRewardsTest {
     // Something less than the supposed reward is sent
     rewardToken.transfer(address(uniStaker), _transferAmount);
     // The reward notification should revert because the contract doesn't have enough tokens
-    vm.expectRevert(UniStaker.UniStaker__InsufficientRewardBalance.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InsufficientRewardBalance.selector);
     uniStaker.notifyRewardAmount(_amount);
     vm.stopPrank();
   }
@@ -3451,12 +3451,12 @@ contract RewardPerTokenAccumulated is UniStakerRewardsTest {
     _durationPercent3 = bound(_durationPercent3, 0, 200);
 
     // First deposit
-    UniStaker.DepositIdentifier _depositId1;
+    IUniStaker.DepositIdentifier _depositId1;
     (_stakeAmount1, _depositId1) = _boundMintAndStake(_depositor1, _stakeAmount1, _depositor1);
     _jumpAheadByPercentOfRewardDuration(_durationPercent1);
 
     // Second deposit
-    (, UniStaker.DepositIdentifier _depositId2) =
+    (, IUniStaker.DepositIdentifier _depositId2) =
       _boundMintAndStake(_depositor2, _stakeAmount2, _depositor2);
     _jumpAheadByPercentOfRewardDuration(_durationPercent2);
 
@@ -3492,7 +3492,7 @@ contract RewardPerTokenAccumulated is UniStakerRewardsTest {
     _durationPercent3 = _bound(_durationPercent3, 0, 200);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId) =
+    (, IUniStaker.DepositIdentifier _depositId) =
       _boundMintAndStake(_depositor, _stakeAmount, _depositor);
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -3531,7 +3531,7 @@ contract RewardPerTokenAccumulated is UniStakerRewardsTest {
     _durationPercent3 = _bound(_durationPercent3, 0, 200);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId) =
+    (, IUniStaker.DepositIdentifier _depositId) =
       _boundMintAndStake(_depositor, _stakeAmount, _depositor);
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -3567,7 +3567,7 @@ contract RewardPerTokenAccumulated is UniStakerRewardsTest {
     _durationPercent1 = _bound(_durationPercent1, 0, 200);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId) =
+    (, IUniStaker.DepositIdentifier _depositId) =
       _boundMintAndStake(_depositor, _stakeAmount, _depositor);
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -3712,7 +3712,7 @@ contract RewardPerTokenAccumulated is UniStakerRewardsTest {
     _durationPercent1 = _bound(_durationPercent1, 0, 100);
     _durationPercent2 = _bound(_durationPercent2, 0, 100 - _durationPercent1);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
 
     // A user deposits staking tokens
     (, _depositId) = _boundMintAndStake(_depositor, _stakeAmount, _depositor);
@@ -3893,7 +3893,7 @@ contract UnclaimedReward is UniStakerRewardsTest {
     _percentDuration = bound(_percentDuration, 0, 100);
 
     // A user deposits staking tokens w/ a beneficiary
-    (, UniStaker.DepositIdentifier _depositId) =
+    (, IUniStaker.DepositIdentifier _depositId) =
       _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary1);
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -4082,7 +4082,7 @@ contract UnclaimedReward is UniStakerRewardsTest {
     _percentDuration = bound(_percentDuration, 0, 100);
 
     // A user deposits staking tokens w/ a beneficiary
-    (, UniStaker.DepositIdentifier _depositId) =
+    (, IUniStaker.DepositIdentifier _depositId) =
       _boundMintAndStake(_depositor, _stakeAmount, _delegatee, _beneficiary1);
     // The contract is notified of a reward
     _mintTransferAndNotifyReward(_rewardAmount);
@@ -4223,7 +4223,7 @@ contract UnclaimedReward is UniStakerRewardsTest {
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId1) =
+    (, IUniStaker.DepositIdentifier _depositId1) =
       _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
     // Some time passes
     _jumpAhead(3000);
@@ -4310,7 +4310,7 @@ contract UnclaimedReward is UniStakerRewardsTest {
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId1) =
+    (, IUniStaker.DepositIdentifier _depositId1) =
       _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
     // Some time passes
     _jumpAhead(3000);
@@ -4410,7 +4410,7 @@ contract UnclaimedReward is UniStakerRewardsTest {
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId1) =
+    (, IUniStaker.DepositIdentifier _depositId1) =
       _boundMintAndStake(_depositor1, _stakeAmount, _delegatee);
     // Some time passes
     _jumpAhead(3000);
@@ -4473,17 +4473,17 @@ contract UnclaimedReward is UniStakerRewardsTest {
     (_stakeAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_stakeAmount, _rewardAmount);
 
     // A user deposits staking tokens
-    (, UniStaker.DepositIdentifier _depositId1) =
+    (, IUniStaker.DepositIdentifier _depositId1) =
       _boundMintAndStake(_depositor1, _stakeAmount, _depositor1);
     // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
-    (, UniStaker.DepositIdentifier _depositId2) =
+    (, IUniStaker.DepositIdentifier _depositId2) =
       _boundMintAndStake(_depositor2, _stakeAmount, _depositor1);
     // Some time passes
     _jumpAhead(3000);
     // Another depositor deposits the same number of staking tokens
-    (, UniStaker.DepositIdentifier _depositId3) =
+    (, IUniStaker.DepositIdentifier _depositId3) =
       _boundMintAndStake(_depositor3, _stakeAmount, _depositor1);
     // Some time passes
     _jumpAhead(3000);
@@ -4947,7 +4947,7 @@ contract UnclaimedReward is UniStakerRewardsTest {
     // Every block _attacker deposits 0 stake and assigns _depositor1 as beneficiary, thus leading
     // to frequent updates of the reward checkpoint for _depositor1, during which rounding errors
     // could accrue.
-    UniStaker.DepositIdentifier _depositId = _stake(_attacker, 0, _delegatee, _depositor1);
+    IUniStaker.DepositIdentifier _depositId = _stake(_attacker, 0, _delegatee, _depositor1);
     for (uint256 i = 0; i < 1000; ++i) {
       _jumpAhead(12);
       vm.prank(_attacker);
@@ -5060,7 +5060,7 @@ contract ClaimReward is UniStakerRewardsTest {
     uint256 _earned = uniStaker.unclaimedReward(_depositor);
 
     vm.expectEmit();
-    emit UniStaker.RewardClaimed(_depositor, _earned);
+    emit IUniStaker.RewardClaimed(_depositor, _earned);
 
     vm.prank(_depositor);
     uniStaker.claimReward();
@@ -5085,7 +5085,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
     _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
     address _beneficiary = vm.addr(_beneficiaryPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
@@ -5135,7 +5135,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
     _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
     address _beneficiary = vm.addr(_beneficiaryPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
@@ -5187,7 +5187,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
     _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
     address _beneficiary = vm.addr(_beneficiaryPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
@@ -5212,7 +5212,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.claimRewardOnBehalf(_beneficiary, _deadline, _signature);
   }
@@ -5232,7 +5232,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
     _beneficiaryPrivateKey = bound(_beneficiaryPrivateKey, 1, 100e18);
     address _beneficiary = vm.addr(_beneficiaryPrivateKey);
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _rewardAmount) = _boundToRealisticStakeAndReward(_depositAmount, _rewardAmount);
     _durationPercent = bound(_durationPercent, 0, 100);
 
@@ -5257,7 +5257,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
       keccak256(abi.encodePacked("\x19\x01", EIP712_DOMAIN_SEPARATOR, _message));
     bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
 
-    vm.expectRevert(UniStaker.UniStaker__ExpiredDeadline.selector);
+    vm.expectRevert(IUniStaker.UniStaker__ExpiredDeadline.selector);
     vm.prank(_sender);
     uniStaker.claimRewardOnBehalf(_beneficiary, _deadline, _signature);
   }
@@ -5282,7 +5282,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
       _currentNonce
     );
 
-    UniStaker.DepositIdentifier _depositId;
+    IUniStaker.DepositIdentifier _depositId;
     (_depositAmount, _depositId) =
       _boundMintAndStake(_depositor, _depositAmount, _delegatee, _beneficiary);
 
@@ -5307,7 +5307,7 @@ contract ClaimRewardOnBehalf is UniStakerRewardsTest {
     bytes memory _signature = _sign(_beneficiaryPrivateKey, _messageHash);
     if (_randomSeed % 4 == 3) _signature = _modifySignature(_signature, _randomSeed);
 
-    vm.expectRevert(UniStaker.UniStaker__InvalidSignature.selector);
+    vm.expectRevert(IUniStaker.UniStaker__InvalidSignature.selector);
     vm.prank(_sender);
     uniStaker.claimRewardOnBehalf(_beneficiary, _deadline, _signature);
   }
@@ -5348,7 +5348,7 @@ contract Multicall is UniStakerRewardsTest {
     );
   }
 
-  function _encodeStakeMore(UniStaker.DepositIdentifier _depositId, uint96 _stakeAmount)
+  function _encodeStakeMore(IUniStaker.DepositIdentifier _depositId, uint96 _stakeAmount)
     internal
     pure
     returns (bytes memory)
@@ -5358,7 +5358,7 @@ contract Multicall is UniStakerRewardsTest {
     );
   }
 
-  function _encodeWithdraw(UniStaker.DepositIdentifier _depositId, uint96 _amount)
+  function _encodeWithdraw(IUniStaker.DepositIdentifier _depositId, uint96 _amount)
     internal
     pure
     returns (bytes memory)
@@ -5367,7 +5367,7 @@ contract Multicall is UniStakerRewardsTest {
       abi.encodeWithSelector(bytes4(keccak256("withdraw(uint256,uint96)")), _depositId, _amount);
   }
 
-  function _encodeAlterBeneficiary(UniStaker.DepositIdentifier _depositId, address _beneficiary)
+  function _encodeAlterBeneficiary(IUniStaker.DepositIdentifier _depositId, address _beneficiary)
     internal
     pure
     returns (bytes memory)
@@ -5377,7 +5377,7 @@ contract Multicall is UniStakerRewardsTest {
     );
   }
 
-  function _encodeAlterDelegatee(UniStaker.DepositIdentifier _depositId, address _delegatee)
+  function _encodeAlterDelegatee(IUniStaker.DepositIdentifier _depositId, address _delegatee)
     internal
     pure
     returns (bytes memory)
@@ -5433,7 +5433,7 @@ contract Multicall is UniStakerRewardsTest {
     govToken.approve(address(uniStaker), _stakeAmount0 + _stakeAmount1);
 
     // first, do initial stake without multicall
-    UniStaker.DepositIdentifier _depositId =
+    IUniStaker.DepositIdentifier _depositId =
       uniStaker.stake(_stakeAmount0, _delegatee0, _beneficiary0);
 
     // some time goes by...
@@ -5447,11 +5447,10 @@ contract Multicall is UniStakerRewardsTest {
     uniStaker.multicall(_calls);
     vm.stopPrank();
 
-    (uint96 _amountResult,, address _delegateeResult, address _beneficiaryResult) =
-      uniStaker.deposits(_depositId);
+    IUniStaker.Deposit memory _deposit = uniStaker.deposits(_depositId);
     assertEq(uniStaker.depositorTotalStaked(_depositor), _stakeAmount0 + _stakeAmount1);
-    assertEq(_amountResult, _stakeAmount0 + _stakeAmount1);
-    assertEq(_delegateeResult, _delegatee1);
-    assertEq(_beneficiaryResult, _beneficiary1);
+    assertEq(_deposit.balance, _stakeAmount0 + _stakeAmount1);
+    assertEq(_deposit.delegatee, _delegatee1);
+    assertEq(_deposit.beneficiary, _beneficiary1);
   }
 }
