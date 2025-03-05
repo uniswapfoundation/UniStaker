@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.23;
 
+import {IUniStaker} from "./interfaces/IUniStaker.sol";
+
 import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
 import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
 import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
@@ -28,79 +30,7 @@ import {EIP712} from "openzeppelin/utils/cryptography/EIP712.sol";
 /// received, the reward duration restarts, and the rate at which rewards are streamed is updated
 /// to include the newly received rewards along with any remaining rewards that have finished
 /// streaming since the last time a reward was received.
-contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
-  type DepositIdentifier is uint256;
-
-  /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
-  /// already exists.
-  event StakeDeposited(
-    address owner, DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance
-  );
-
-  /// @notice Emitted when a depositor withdraws some portion of stake from a given deposit.
-  event StakeWithdrawn(DepositIdentifier indexed depositId, uint256 amount, uint256 depositBalance);
-
-  /// @notice Emitted when a deposit's delegatee is changed.
-  event DelegateeAltered(
-    DepositIdentifier indexed depositId, address oldDelegatee, address newDelegatee
-  );
-
-  /// @notice Emitted when a deposit's beneficiary is changed.
-  event BeneficiaryAltered(
-    DepositIdentifier indexed depositId,
-    address indexed oldBeneficiary,
-    address indexed newBeneficiary
-  );
-
-  /// @notice Emitted when a beneficiary claims their earned reward.
-  event RewardClaimed(address indexed beneficiary, uint256 amount);
-
-  /// @notice Emitted when this contract is notified of a new reward.
-  event RewardNotified(uint256 amount, address notifier);
-
-  /// @notice Emitted when the admin address is set.
-  event AdminSet(address indexed oldAdmin, address indexed newAdmin);
-
-  /// @notice Emitted when a reward notifier address is enabled or disabled.
-  event RewardNotifierSet(address indexed account, bool isEnabled);
-
-  /// @notice Emitted when a surrogate contract is deployed.
-  event SurrogateDeployed(address indexed delegatee, address indexed surrogate);
-
-  /// @notice Thrown when an account attempts a call for which it lacks appropriate permission.
-  /// @param reason Human readable code explaining why the call is unauthorized.
-  /// @param caller The address that attempted the unauthorized call.
-  error UniStaker__Unauthorized(bytes32 reason, address caller);
-
-  /// @notice Thrown if the new rate after a reward notification would be zero.
-  error UniStaker__InvalidRewardRate();
-
-  /// @notice Thrown if the following invariant is broken after a new reward: the contract should
-  /// always have a reward balance sufficient to distribute at the reward rate across the reward
-  /// duration.
-  error UniStaker__InsufficientRewardBalance();
-
-  /// @notice Thrown if a caller attempts to specify address zero for certain designated addresses.
-  error UniStaker__InvalidAddress();
-
-  /// @notice Thrown when an onBehalf method is called with a deadline that has expired.
-  error UniStaker__ExpiredDeadline();
-
-  /// @notice Thrown if a caller supplies an invalid signature to a method that requires one.
-  error UniStaker__InvalidSignature();
-
-  /// @notice Metadata associated with a discrete staking deposit.
-  /// @param balance The deposit's staked balance.
-  /// @param owner The owner of this deposit.
-  /// @param delegatee The governance delegate who receives the voting weight for this deposit.
-  /// @param beneficiary The address that accrues staking rewards earned by this deposit.
-  struct Deposit {
-    uint96 balance;
-    address owner;
-    address delegatee;
-    address beneficiary;
-  }
-
+contract UniStaker is IUniStaker, INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @notice Type hash used when encoding data for `stakeOnBehalf` calls.
   bytes32 public constant STAKE_TYPEHASH = keccak256(
     "Stake(uint96 amount,address delegatee,address beneficiary,address depositor,uint256 nonce,uint256 deadline)"
@@ -139,7 +69,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   uint256 public constant SCALE_FACTOR = 1e36;
 
   /// @dev Unique identifier that will be used for the next deposit.
-  DepositIdentifier private nextDepositId;
+  DepositIdentifier public nextDepositId;
 
   /// @notice Permissioned actor that can enable/disable `rewardNotifier` addresses.
   address public admin;
@@ -154,11 +84,11 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   mapping(address beneficiary => uint256 amount) public earningPower;
 
   /// @notice Stores the metadata associated with a given deposit.
-  mapping(DepositIdentifier depositId => Deposit deposit) public deposits;
+  mapping(DepositIdentifier depositId => Deposit deposit) internal _deposits;
 
   /// @notice Maps the account of each governance delegate with the surrogate contract which holds
   /// the staked tokens from deposits which assign voting weight to said delegate.
-  mapping(address delegatee => DelegationSurrogate surrogate) public surrogates;
+  mapping(address delegatee => DelegationSurrogate surrogate) internal _surrogates;
 
   /// @notice Time at which rewards distribution will complete if there are no new rewards.
   uint256 public rewardEndTime;
@@ -216,6 +146,26 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     _revertIfNotAdmin();
     isRewardNotifier[_rewardNotifier] = _isEnabled;
     emit RewardNotifierSet(_rewardNotifier, _isEnabled);
+  }
+
+  /// @inheritdoc IUniStaker
+  function deposits(DepositIdentifier depositId) external view override returns (Deposit memory) {
+    return _deposits[depositId];
+  }
+
+  /// @inheritdoc IUniStaker
+  function surrogates(address delegatee) external view override returns (DelegationSurrogate) {
+    return _surrogates[delegatee];
+  }
+
+  /// @inheritdoc IUniStaker
+  function rewardNotifier() external view override returns (address) {
+    return admin;
+  }
+
+  /// @inheritdoc IUniStaker
+  function beneficiaryUnclaimedRewardsCheckpoint(address _beneficiary) external view override returns (uint256) {
+    return scaledUnclaimedRewardCheckpoint[_beneficiary];
   }
 
   /// @notice Timestamp representing the last time at which rewards have been distributed, which is
@@ -354,7 +304,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @param _amount Quantity of stake to be added.
   /// @dev The message sender must be the owner of the deposit.
   function stakeMore(DepositIdentifier _depositId, uint96 _amount) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _stakeMore(deposit, _depositId, _amount);
   }
@@ -378,7 +328,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     bytes32 _r,
     bytes32 _s
   ) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
 
     try STAKE_TOKEN.permit(msg.sender, address(this), _amount, _deadline, _v, _r, _s) {} catch {}
@@ -400,7 +350,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     uint256 _deadline,
     bytes memory _signature
   ) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
     _revertIfPastDeadline(_deadline);
     _revertIfSignatureIsNotValidNow(
@@ -425,7 +375,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @dev The new delegatee may not be the zero address. The message sender must be the owner of
   /// the deposit.
   function alterDelegatee(DepositIdentifier _depositId, address _newDelegatee) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _alterDelegatee(deposit, _depositId, _newDelegatee);
   }
@@ -445,7 +395,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     uint256 _deadline,
     bytes memory _signature
   ) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
     _revertIfPastDeadline(_deadline);
     _revertIfSignatureIsNotValidNow(
@@ -475,7 +425,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @dev The new beneficiary may not be the zero address. The message sender must be the owner of
   /// the deposit.
   function alterBeneficiary(DepositIdentifier _depositId, address _newBeneficiary) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _alterBeneficiary(deposit, _depositId, _newBeneficiary);
   }
@@ -495,7 +445,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     uint256 _deadline,
     bytes memory _signature
   ) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
     _revertIfPastDeadline(_deadline);
     _revertIfSignatureIsNotValidNow(
@@ -524,7 +474,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   /// @dev The message sender must be the owner of the deposit. Stake is withdrawn to the message
   /// sender's account.
   function withdraw(DepositIdentifier _depositId, uint96 _amount) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, msg.sender);
     _withdraw(deposit, _depositId, _amount);
   }
@@ -544,7 +494,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     uint256 _deadline,
     bytes memory _signature
   ) external {
-    Deposit storage deposit = deposits[_depositId];
+    Deposit storage deposit = _deposits[_depositId];
     _revertIfNotDepositOwner(deposit, _depositor);
     _revertIfPastDeadline(_deadline);
     _revertIfSignatureIsNotValidNow(
@@ -607,7 +557,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
   ///    distributed, creating a shortfall for those claiming their rewards after others. It is
   ///    required that a notifier contract always transfers the `_amount` to this contract before
   ///    calling this method.
-  function notifyRewardAmount(uint256 _amount) external {
+  function notifyRewardAmount(uint256 _amount) external override {
     if (!isRewardNotifier[msg.sender]) revert UniStaker__Unauthorized("not notifier", msg.sender);
 
     // We checkpoint the accumulator without updating the timestamp at which it was updated,
@@ -666,11 +616,11 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     internal
     returns (DelegationSurrogate _surrogate)
   {
-    _surrogate = surrogates[_delegatee];
+    _surrogate = _surrogates[_delegatee];
 
     if (address(_surrogate) == address(0)) {
       _surrogate = new DelegationSurrogate(STAKE_TOKEN, _delegatee);
-      surrogates[_delegatee] = _surrogate;
+      _surrogates[_delegatee] = _surrogate;
       emit SurrogateDeployed(_delegatee, address(_surrogate));
     }
   }
@@ -711,7 +661,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     totalStaked += _amount;
     depositorTotalStaked[_depositor] += _amount;
     earningPower[_beneficiary] += _amount;
-    deposits[_depositId] = Deposit({
+    _deposits[_depositId] = Deposit({
       balance: _amount,
       owner: _depositor,
       delegatee: _delegatee,
@@ -732,7 +682,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     _checkpointGlobalReward();
     _checkpointReward(deposit.beneficiary);
 
-    DelegationSurrogate _surrogate = surrogates[deposit.delegatee];
+    DelegationSurrogate _surrogate = _surrogates[deposit.delegatee];
 
     totalStaked += _amount;
     depositorTotalStaked[deposit.owner] += _amount;
@@ -751,7 +701,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     address _newDelegatee
   ) internal {
     _revertIfAddressZero(_newDelegatee);
-    DelegationSurrogate _oldSurrogate = surrogates[deposit.delegatee];
+    DelegationSurrogate _oldSurrogate = _surrogates[deposit.delegatee];
     emit DelegateeAltered(_depositId, deposit.delegatee, _newDelegatee);
     deposit.delegatee = _newDelegatee;
     DelegationSurrogate _newSurrogate = _fetchOrDeploySurrogate(_newDelegatee);
@@ -790,7 +740,7 @@ contract UniStaker is INotifiableRewardReceiver, Multicall, EIP712, Nonces {
     totalStaked -= _amount;
     depositorTotalStaked[deposit.owner] -= _amount;
     earningPower[deposit.beneficiary] -= _amount;
-    _stakeTokenSafeTransferFrom(address(surrogates[deposit.delegatee]), deposit.owner, _amount);
+    _stakeTokenSafeTransferFrom(address(_surrogates[deposit.delegatee]), deposit.owner, _amount);
     emit StakeWithdrawn(_depositId, _amount, deposit.balance);
   }
 

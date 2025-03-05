@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC20Delegates} from "./IERC20Delegates.sol";
+import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
 
 interface IUniStaker {
   type DepositIdentifier is uint256;
@@ -305,24 +306,6 @@ interface IUniStaker {
     external
     returns (uint256);
 
-  /// @notice Called by an authorized rewards notifier to alert the staking contract that a new
-  /// reward has been transferred to it. It is assumed that the reward has already been transferred
-  /// to this staking contract before the rewards notifier calls this method.
-  /// @param _amount Quantity of reward tokens the staking contract is being notified of.
-  /// @dev It is critical that only well behaved contracts are approved by the admin to call this
-  /// method, for two reasons.
-  ///
-  /// 1. A misbehaving contract could grief stakers by frequently notifying this contract of tiny
-  /// rewards, thereby continuously stretching out the time duration over which real rewards are
-  /// distributed. It is required that reward notifiers supply reasonable rewards at reasonable
-  /// intervals.
-  ///
-  /// 2. A misbehaving contract could falsely notify this contract of rewards that were not actually
-  /// distributed, creating a shortfall for those claiming their rewards after others. It is
-  /// required that a notifier contract always transfers the `_amount` to this contract before
-  /// calling this method.
-  function notifyRewardAmount(uint256 _amount) external;
-
   /// @notice ERC20 token in which rewards are denominated and distributed.
   function REWARD_TOKEN() external view returns (IERC20);
 
@@ -356,7 +339,7 @@ interface IUniStaker {
 
   /// @notice Maps the account of each governance delegate with the surrogate contract which holds
   /// the staked tokens from deposits which assign voting weight to said delegate.
-  function surrogates(address) external view returns (address);
+  function surrogates(address) external view returns (DelegationSurrogate);
 
   /// @notice Time at which rewards distribution will complete if there are no new rewards.
   function rewardEndTime() external view returns (uint256);
