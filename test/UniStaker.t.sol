@@ -3,6 +3,7 @@ pragma solidity 0.8.23;
 
 import {Vm, Test, stdStorage, StdStorage, console2} from "forge-std/Test.sol";
 import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
+import {IUniStaker} from "src/interfaces/IUniStaker.sol";
 import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
 import {ERC20VotesMock, ERC20Permit} from "test/mocks/MockERC20Votes.sol";
 import {IERC20Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
@@ -14,7 +15,7 @@ contract UniStakerTest is Test, PercentAssertions {
   ERC20VotesMock govToken;
   address admin;
   address rewardNotifier;
-  UniStakerHarness uniStaker;
+  IUniStaker uniStaker;
   uint256 SCALE_FACTOR;
   // console2.log(uint(_domainSeparatorV4()))
   bytes32 EIP712_DOMAIN_SEPARATOR = bytes32(
@@ -48,7 +49,7 @@ contract UniStakerTest is Test, PercentAssertions {
 
     admin = makeAddr("admin");
 
-    uniStaker = new UniStakerHarness(rewardToken, govToken, admin);
+    uniStaker = IUniStaker(address(new UniStakerHarness(rewardToken, govToken, admin)));
     vm.label(address(uniStaker), "UniStaker");
 
     vm.prank(admin);
@@ -234,7 +235,8 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    UniStaker.DepositIdentifier depositId =
+      UniStakerHarness(address(uniStaker)).exposed_useDepositId();
 
     vm.assume(_delegatee != address(0));
 
@@ -259,7 +261,8 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    UniStaker.DepositIdentifier depositId =
+      UniStakerHarness(address(uniStaker)).exposed_useDepositId();
 
     vm.assume(_delegatee != address(0));
 
@@ -283,7 +286,8 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    UniStaker.DepositIdentifier depositId =
+      UniStakerHarness(address(uniStaker)).exposed_useDepositId();
 
     vm.assume(_delegatee != address(0));
 
@@ -308,7 +312,8 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    UniStaker.DepositIdentifier depositId =
+      UniStakerHarness(address(uniStaker)).exposed_useDepositId();
 
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
@@ -334,7 +339,8 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    UniStaker.DepositIdentifier depositId =
+      UniStakerHarness(address(uniStaker)).exposed_useDepositId();
 
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
@@ -359,7 +365,8 @@ contract Stake is UniStakerTest {
   ) public {
     _amount = uint96(bound(_amount, 1, type(uint96).max));
     _mintGovToken(_depositor, _amount);
-    UniStaker.DepositIdentifier depositId = uniStaker.exposed_useDepositId();
+    UniStaker.DepositIdentifier depositId =
+      UniStakerHarness(address(uniStaker)).exposed_useDepositId();
 
     vm.assume(_delegatee != address(0) && _beneficiary != address(0));
 
@@ -5317,7 +5324,7 @@ contract _FetchOrDeploySurrogate is UniStakerRewardsTest {
   function testFuzz_EmitsAnEventWhenASurrogateIsDeployed(address _delegatee) public {
     vm.assume(_delegatee != address(0));
     vm.recordLogs();
-    uniStaker.exposed_fetchOrDeploySurrogate(_delegatee);
+    UniStakerHarness(address(uniStaker)).exposed_fetchOrDeploySurrogate(_delegatee);
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
     DelegationSurrogate _surrogate = uniStaker.surrogates(_delegatee);
