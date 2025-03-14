@@ -7,18 +7,6 @@ import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
 import {UniStaker} from "src/UniStaker.sol";
 
 interface IUniStaker {
-  /// @notice Metadata associated with a discrete staking deposit.
-  /// @param balance The deposit's staked balance.
-  /// @param owner The owner of this deposit.
-  /// @param delegatee The governance delegate who receives the voting weight for this deposit.
-  /// @param beneficiary The address that accrues staking rewards earned by this deposit.
-  struct Deposit {
-    uint96 balance;
-    address owner;
-    address delegatee;
-    address beneficiary;
-  }
-
   /// @notice Emitted when stake is deposited by a depositor, either to a new deposit or one that
   /// already exists.
   event StakeDeposited(
