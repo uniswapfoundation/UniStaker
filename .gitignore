@@ -16,3 +16,7 @@ lcov.info
 # IDEs
 .vscode
 .idea
+
+# Package building
+/flattened/**/*
+/package/**/*
