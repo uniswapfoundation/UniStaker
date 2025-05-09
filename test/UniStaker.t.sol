@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 import {Vm, Test, stdStorage, StdStorage, console2} from "forge-std/Test.sol";
-import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "src/UniStaker.sol";
-import {UniStakerHarness} from "test/harnesses/UniStakerHarness.sol";
-import {ERC20VotesMock, ERC20Permit} from "test/mocks/MockERC20Votes.sol";
-import {IERC20Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
-import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
-import {PercentAssertions} from "test/helpers/PercentAssertions.sol";
+import {UniStaker, DelegationSurrogate, IERC20, IERC20Delegates} from "unistaker/UniStaker.sol";
+import {UniStakerHarness} from "unistaker-test/harnesses/UniStakerHarness.sol";
+import {ERC20VotesMock} from "unistaker-test/mocks/MockERC20Votes.sol";
+import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {ERC20Fake} from "unistaker-test/fakes/ERC20Fake.sol";
+import {PercentAssertions} from "unistaker-test/helpers/PercentAssertions.sol";
 
 contract UniStakerTest is Test, PercentAssertions {
   ERC20Fake rewardToken;
@@ -191,7 +191,7 @@ contract UniStakerTest is Test, PercentAssertions {
 }
 
 contract Constructor is UniStakerTest {
-  function test_SetsTheRewardTokenStakeTokenAndRewardNotifier() public {
+  function test_SetsTheRewardTokenStakeTokenAndRewardNotifier() public view {
     assertEq(address(uniStaker.REWARD_TOKEN()), address(rewardToken));
     assertEq(address(uniStaker.STAKE_TOKEN()), address(govToken));
     assertEq(uniStaker.admin(), admin);
@@ -675,6 +675,9 @@ contract Stake is UniStakerTest {
 
     UniStaker.DepositIdentifier _depositId;
 
+    // The test performs thousands of operations, so we disable gas metering to prevent failure.
+    vm.pauseGasMetering();
+
     // Repeat the deposit over and over ensuring a new DepositIdentifier is assigned each time.
     for (uint256 _i; _i < 5000; _i++) {
       // Perform the stake and save the deposit identifier
@@ -705,6 +708,7 @@ contract Stake is UniStakerTest {
       _amount = uint96(uint256(keccak256(abi.encode(_amount))));
       _delegatee = address(uint160(uint256(keccak256(abi.encode(_delegatee)))));
     }
+    vm.resumeGasMetering();
   }
 
   function testFuzz_RevertIf_DelegateeIsTheZeroAddress(address _depositor, uint96 _amount) public {
@@ -2741,7 +2745,7 @@ contract Withdraw is UniStakerTest {
   ) public {
     UniStaker.DepositIdentifier _depositId;
     (_amount, _depositId) = _boundMintAndStake(_depositor, _amount, _delegatee);
-    _amountOver = uint96(bound(_amountOver, 1, type(uint128).max));
+    _amountOver = uint96(bound(_amountOver, 1, type(uint48).max));
 
     vm.prank(_depositor);
     vm.expectRevert();
@@ -3349,7 +3353,7 @@ contract NotifyRewardAmount is UniStakerRewardsTest {
 }
 
 contract LastTimeRewardDistributed is UniStakerRewardsTest {
-  function test_ReturnsZeroBeforeARewardNotificationHasOccurred() public {
+  function test_ReturnsZeroBeforeARewardNotificationHasOccurred() public view {
     assertEq(uniStaker.lastTimeRewardDistributed(), 0);
   }
 

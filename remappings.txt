@@ -1,0 +1,5 @@
+unistaker=src/
+unistaker-test=test/
+unistaker-script=script/
+uniswap-periphery/=lib/v3-periphery/contracts
+@uniswap/v3-core=lib/v3-core

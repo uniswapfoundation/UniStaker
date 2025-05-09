@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
-import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
-import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IUniswapV3PoolOwnerActions} from "unistaker/interfaces/IUniswapV3PoolOwnerActions.sol";
+import {IUniswapV3FactoryOwnerActions} from "unistaker/interfaces/IUniswapV3FactoryOwnerActions.sol";
+import {INotifiableRewardReceiver} from "unistaker/interfaces/INotifiableRewardReceiver.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title V3FactoryOwner
 /// @author ScopeLift

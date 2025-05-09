@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
-import {ERC20, ERC20Permit} from "openzeppelin/token/ERC20/extensions/ERC20Permit.sol";
+import {IERC20Delegates} from "unistaker/interfaces/IERC20Delegates.sol";
+import {ERC20, ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 /// @dev An ERC20Permit token that allows for public minting and mocks the delegation methods used
 /// in ERC20Votes governance tokens. It does not included check pointing functionality. This

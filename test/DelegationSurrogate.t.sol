@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
-import {ERC20VotesMock} from "test/mocks/MockERC20Votes.sol";
+import {DelegationSurrogate} from "unistaker/DelegationSurrogate.sol";
+import {ERC20VotesMock} from "unistaker-test/mocks/MockERC20Votes.sol";
 
 contract DelegationSurrogateTest is Test {
   ERC20VotesMock govToken;

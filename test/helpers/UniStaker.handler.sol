@@ -5,9 +5,9 @@ import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 import {console} from "forge-std/console.sol";
-import {AddressSet, LibAddressSet} from "../helpers/AddressSet.sol";
-import {UniStaker} from "src/UniStaker.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {AddressSet, LibAddressSet} from "unistaker-test/helpers/AddressSet.sol";
+import {UniStaker} from "unistaker/UniStaker.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract UniStakerHandler is CommonBase, StdCheats, StdUtils {
   using LibAddressSet for AddressSet;

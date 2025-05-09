@@ -2,12 +2,12 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {UniStaker} from "src/UniStaker.sol";
-import {UniStakerHandler} from "test/helpers/UniStaker.handler.sol";
-import {ERC20VotesMock} from "test/mocks/MockERC20Votes.sol";
-import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
+import {UniStaker} from "unistaker/UniStaker.sol";
+import {UniStakerHandler} from "unistaker-test/helpers/UniStaker.handler.sol";
+import {ERC20VotesMock} from "unistaker-test/mocks/MockERC20Votes.sol";
+import {ERC20Fake} from "unistaker-test/fakes/ERC20Fake.sol";
 
 contract UniStakerInvariants is Test {
   UniStakerHandler public handler;
@@ -56,11 +56,14 @@ contract UniStakerInvariants is Test {
     assertEq(uniStaker.totalStaked(), handler.reduceDelegates(0, this.accumulateSurrogateBalance));
   }
 
-  function invariant_Cumulative_staked_minus_withdrawals_equals_total_stake() public {
+  function invariant_Cumulative_staked_minus_withdrawals_equals_total_stake() public view {
     assertEq(uniStaker.totalStaked(), handler.ghost_stakeSum() - handler.ghost_stakeWithdrawn());
   }
 
-  function invariant_Sum_of_notified_rewards_equals_all_claimed_rewards_plus_rewards_left() public {
+  function invariant_Sum_of_notified_rewards_equals_all_claimed_rewards_plus_rewards_left()
+    public
+    view
+  {
     assertEq(
       handler.ghost_rewardsNotified(),
       rewardToken.balanceOf(address(uniStaker)) + handler.ghost_rewardsClaimed()
@@ -75,7 +78,7 @@ contract UniStakerInvariants is Test {
   }
 
   function invariant_RewardPerTokenAccumulatedCheckpoint_should_be_greater_or_equal_to_the_last_rewardPerTokenAccumulatedCheckpoint(
-  ) public {
+  ) public view {
     assertGe(
       uniStaker.rewardPerTokenAccumulatedCheckpoint(),
       handler.ghost_prevRewardPerTokenAccumulatedCheckpoint()

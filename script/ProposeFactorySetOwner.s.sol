@@ -3,8 +3,8 @@ pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
 
-import {DeployInput} from "script/DeployInput.sol";
-import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
+import {DeployInput} from "unistaker-script/DeployInput.sol";
+import {GovernorBravoDelegate} from "unistaker-script/interfaces/GovernorBravoInterfaces.sol";
 
 contract ProposeFactorySetOwner is Script, DeployInput {
   GovernorBravoDelegate constant GOVERNOR = GovernorBravoDelegate(UNISWAP_GOVERNOR);

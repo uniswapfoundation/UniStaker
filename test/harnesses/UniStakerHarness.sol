@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
-import {UniStaker} from "src/UniStaker.sol";
+import {DelegationSurrogate} from "unistaker/DelegationSurrogate.sol";
+import {UniStaker} from "unistaker/UniStaker.sol";
 
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Delegates} from "unistaker/interfaces/IERC20Delegates.sol";
 
 contract UniStakerHarness is UniStaker {
   constructor(IERC20 _rewardsToken, IERC20Delegates _stakeToken, address _admin)

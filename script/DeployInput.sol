@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // slither-disable-start reentrancy-benign
 
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 contract DeployInput {
   address constant UNISWAP_GOVERNOR = 0x408ED6354d4973f66138C91495F2f2FCbd8724C3;

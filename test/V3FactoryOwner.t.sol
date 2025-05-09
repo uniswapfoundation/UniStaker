@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
-import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
-import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
-import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
-import {ERC20Fake} from "test/fakes/ERC20Fake.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IERC20Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
-import {MockRewardReceiver} from "test/mocks/MockRewardReceiver.sol";
-import {MockUniswapV3Pool} from "test/mocks/MockUniswapV3Pool.sol";
-import {MockUniswapV3Factory} from "test/mocks/MockUniswapV3Factory.sol";
+import {V3FactoryOwner} from "unistaker/V3FactoryOwner.sol";
+import {INotifiableRewardReceiver} from "unistaker/interfaces/INotifiableRewardReceiver.sol";
+import {IUniswapV3FactoryOwnerActions} from "unistaker/interfaces/IUniswapV3FactoryOwnerActions.sol";
+import {ERC20Fake} from "unistaker-test/fakes/ERC20Fake.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {MockRewardReceiver} from "unistaker-test/mocks/MockRewardReceiver.sol";
+import {MockUniswapV3Pool} from "unistaker-test/mocks/MockUniswapV3Pool.sol";
+import {MockUniswapV3Factory} from "unistaker-test/mocks/MockUniswapV3Factory.sol";
 
 contract V3FactoryOwnerTest is Test {
   V3FactoryOwner factoryOwner;

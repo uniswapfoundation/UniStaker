@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {DelegationSurrogate} from "src/DelegationSurrogate.sol";
-import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
-import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {Multicall} from "openzeppelin/utils/Multicall.sol";
-import {Nonces} from "openzeppelin/utils/Nonces.sol";
-import {SignatureChecker} from "openzeppelin/utils/cryptography/SignatureChecker.sol";
-import {EIP712} from "openzeppelin/utils/cryptography/EIP712.sol";
+import {DelegationSurrogate} from "unistaker/DelegationSurrogate.sol";
+import {INotifiableRewardReceiver} from "unistaker/interfaces/INotifiableRewardReceiver.sol";
+import {IERC20Delegates} from "unistaker/interfaces/IERC20Delegates.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
+import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 /// @title UniStaker
 /// @author ScopeLift
