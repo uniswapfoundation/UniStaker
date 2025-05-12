@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
+import {IUniswapV3PoolOwnerActions} from "unistaker/interfaces/IUniswapV3PoolOwnerActions.sol";
 
 contract MockUniswapV3Pool is IUniswapV3PoolOwnerActions {
   uint8 public lastParam__setFeeProtocol_feeProtocol0;

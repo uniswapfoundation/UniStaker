@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
+import {IERC20Delegates} from "unistaker/interfaces/IERC20Delegates.sol";
 
 /// @title DelegationSurrogate
 /// @author ScopeLift

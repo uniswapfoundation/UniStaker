@@ -2,10 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
-
-import {DeployInput} from "script/DeployInput.sol";
-import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
-import {ProposeProtocolFeesBase} from "script/ProposeProtocolFeesBase.s.sol";
+import {ProposeProtocolFeesBase} from "unistaker-script/ProposeProtocolFeesBase.s.sol";
 
 /// @dev This script will turn on protocol fees for the following pools: WBTC-WETH-3000,
 /// DAI-WETH-300, and DAI-USDC-100.

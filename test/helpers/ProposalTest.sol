@@ -2,16 +2,16 @@
 pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {Deploy} from "script/Deploy.s.sol";
-import {DeployInput} from "script/DeployInput.sol";
-import {ProposeFactorySetOwner} from "script/ProposeFactorySetOwner.s.sol";
-import {ProposeProtocolFeesBatch1} from "script/ProposeProtocolFeesBatch1.sol";
-import {Constants} from "test/helpers/Constants.sol";
-import {GovernorBravoDelegate} from "script/interfaces/GovernorBravoInterfaces.sol";
-import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
-import {UniStaker} from "src/UniStaker.sol";
+import {Deploy} from "unistaker-script/Deploy.s.sol";
+import {DeployInput} from "unistaker-script/DeployInput.sol";
+import {ProposeFactorySetOwner} from "unistaker-script/ProposeFactorySetOwner.s.sol";
+import {ProposeProtocolFeesBatch1} from "unistaker-script/ProposeProtocolFeesBatch1.sol";
+import {Constants} from "unistaker-test/helpers/Constants.sol";
+import {GovernorBravoDelegate} from "unistaker-script/interfaces/GovernorBravoInterfaces.sol";
+import {V3FactoryOwner} from "unistaker/V3FactoryOwner.sol";
+import {UniStaker} from "unistaker/UniStaker.sol";
 
 abstract contract ProposalTest is Test, DeployInput, Constants {
   //----------------- State and Setup ----------- //

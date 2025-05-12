@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 import {console2, stdStorage, StdStorage} from "forge-std/Test.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IUniswapV3PoolOwnerActions} from "unistaker/interfaces/IUniswapV3PoolOwnerActions.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
-import {ProposalTest} from "test/helpers/ProposalTest.sol";
-import {IERC20Mint} from "test/helpers/interfaces/IERC20Mint.sol";
+import {ProposalTest} from "unistaker-test/helpers/ProposalTest.sol";
+import {IERC20Mint} from "unistaker-test/helpers/interfaces/IERC20Mint.sol";
 
 contract IntegrationTest is ProposalTest {
   using stdStorage for StdStorage;

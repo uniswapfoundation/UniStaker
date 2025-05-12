@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test, console2} from "forge-std/Test.sol";
-import {Deploy} from "script/Deploy.s.sol";
-import {DeployInput} from "script/DeployInput.sol";
+import {Deploy} from "unistaker-script/Deploy.s.sol";
+import {DeployInput} from "unistaker-script/DeployInput.sol";
 
-import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
-import {UniStaker} from "src/UniStaker.sol";
-import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
-import {IUniswapV3PoolOwnerActions} from "src/interfaces/IUniswapV3PoolOwnerActions.sol";
-import {IUniswapPool} from "test/helpers/interfaces/IUniswapPool.sol";
-import {PercentAssertions} from "test/helpers/PercentAssertions.sol";
-import {IntegrationTest} from "test/helpers/IntegrationTest.sol";
+import {V3FactoryOwner} from "unistaker/V3FactoryOwner.sol";
+import {UniStaker} from "unistaker/UniStaker.sol";
+import {IUniswapV3FactoryOwnerActions} from "unistaker/interfaces/IUniswapV3FactoryOwnerActions.sol";
+import {IUniswapV3PoolOwnerActions} from "unistaker/interfaces/IUniswapV3PoolOwnerActions.sol";
+import {IUniswapPool} from "unistaker-test/helpers/interfaces/IUniswapPool.sol";
+import {PercentAssertions} from "unistaker-test/helpers/PercentAssertions.sol";
+import {IntegrationTest} from "unistaker-test/helpers/IntegrationTest.sol";
 
 contract DeployScriptTest is Test, DeployInput {
   function setUp() public {

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // slither-disable-start reentrancy-benign
 
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Script} from "forge-std/Script.sol";
 
-import {DeployInput} from "script/DeployInput.sol";
-import {UniStaker} from "src/UniStaker.sol";
-import {V3FactoryOwner} from "src/V3FactoryOwner.sol";
-import {IERC20Delegates} from "src/interfaces/IERC20Delegates.sol";
-import {INotifiableRewardReceiver} from "src/interfaces/INotifiableRewardReceiver.sol";
-import {IUniswapV3FactoryOwnerActions} from "src/interfaces/IUniswapV3FactoryOwnerActions.sol";
+import {DeployInput} from "unistaker-script/DeployInput.sol";
+import {UniStaker} from "unistaker/UniStaker.sol";
+import {V3FactoryOwner} from "unistaker/V3FactoryOwner.sol";
+import {IERC20Delegates} from "unistaker/interfaces/IERC20Delegates.sol";
+import {INotifiableRewardReceiver} from "unistaker/interfaces/INotifiableRewardReceiver.sol";
+import {IUniswapV3FactoryOwnerActions} from "unistaker/interfaces/IUniswapV3FactoryOwnerActions.sol";
 
 contract Deploy is Script, DeployInput {
   uint256 deployerPrivateKey;
