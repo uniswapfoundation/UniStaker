@@ -35,7 +35,6 @@ The system consists of two core contracts which are designed to be deployed into
 flowchart TD
     A[Uniswap Governance] -->|"
     Can set fees on specific pools
-
     Can not collect fees
     Can not transfer ownership
     "| A1[V3FactoryOwner]:::new
